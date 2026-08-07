@@ -51,19 +51,25 @@ def workforce():
             """
         )
 
-        interval = st.number_input(
-            "Planning period length (seconds)",
-            min_value=1,
-            value=1800,
-            step=60,
-            help="""
-            The period over which demand is expected to occur.
-            For example:
-            • 1800 seconds = 30 minutes
-            • 3600 seconds = 1 hour
-            • 14400 seconds = 4 hours
-            """
+        interval_minutes = st.number_input(
+        "Planning period (minutes)",
+        min_value=1,
+        value=30,
+        step=5,
+        help="""
+        The time period over which the expected contacts will occur.
+
+        Examples:
+        • 30 minutes = commonly used for contact centre planning
+        • 60 minutes = 1 hour
+        • 240 minutes = 4 hours
+
+        For example, if you expect 100 contacts over a 30-minute period,
+        enter 100 contacts above and 30 minutes here.
+        """
         )
+
+        interval = interval_minutes * 60
 
         shrinkage_pct = st.slider(
             "Staff unavailable time (%)",
@@ -155,12 +161,12 @@ def workforce():
                     
                 col3.metric(
                     "Service Level",
-                    summary.get("service_level", "N/A")
+                    f"{summary.get('service_level', 0) * 100:.1f}%"
                 )
 
                 col4.metric(
                     "Occupancy",
-                    summary.get("occupancy", "N/A")
+                    f"{summary.get('occupancy', 0) * 100:.1f}%"
                 )
                 
                 with st.expander("What is shrinkage?"):
@@ -263,7 +269,8 @@ def workforce():
                 )
 
                 sweet_spot_df = curve_df[
-                    curve_df["marginal_gain"] < 1
+                    (curve_df["marginal_gain"] < 1)
+                    & (curve_df["service_level_pct"] >= service_level_target_pct)
                 ]
 
                 if not sweet_spot_df.empty:
@@ -307,12 +314,6 @@ def workforce():
 
                 st.subheader("Occupancy Analysis")
                 
-                st.info("""
-                    This view highlights the operational risks associated with different staffing levels.
-                    Higher occupancy means staff spend more time continuously handling contacts, which can increase pressure, reduce flexibility and impact resilience.
-                    Use this tab to identify staffing levels that balance performance with workforce wellbeing and sustainability.
-                    """)
-
                 fig = px.line(
                     curve_df,
                     x="staff",

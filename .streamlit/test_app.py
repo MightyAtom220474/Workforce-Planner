@@ -12,7 +12,7 @@ def workforce():
 
     st.set_page_config(page_title='Erlang C Workforce Planner', layout='wide')
     st.title('Erlang C Workforce Planner')
-    st.caption('Calculate required staffing from transactions, AHT, ASA, interval length, and shrinkage.')
+    st.caption('Calculate required staffing levels for your call reponse service')
 
     with st.sidebar:
 

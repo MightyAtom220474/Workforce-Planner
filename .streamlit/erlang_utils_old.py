@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from typing import Any, Dict
 
 #import pyworkforce
-from pyworkforce.queuing import ErlangC
+#from pyworkforce.queuing import ErlangC
 
 def calculate_erlang(
     transactions: float,

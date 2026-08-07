@@ -15,18 +15,89 @@ def workforce():
     st.caption('Calculate required staffing from transactions, AHT, ASA, interval length, and shrinkage.')
 
     with st.sidebar:
-        st.header('Inputs')
-        transactions = st.number_input('Transactions', min_value=0.0, value=100.0, step=1.0)
-        aht = st.number_input('AHT (seconds)', min_value=1.0, value=180.0, step=1.0)
-        asa = st.number_input('ASA target (seconds)', min_value=1.0, value=20.0, step=1.0)
-        interval = st.number_input('Interval (seconds)', min_value=1, value=1800, step=60)
-        shrinkage_pct = st.slider('Shrinkage (%)', min_value=0, max_value=80, value=30, step=1)
-        service_level_target = st.slider('Service level target', min_value=0.50, max_value=0.99, value=0.80, step=0.01)
-        run_btn = st.button('Run calculation', type='primary')
 
+        st.header("Workload Assumptions")
+
+        transactions = st.number_input(
+            "Expected contacts during the period",
+            min_value=0.0,
+            value=100.0,
+            step=1.0,
+            help="""
+            Enter the number of contacts you expect to receive during the selected planning period.
+            This could include phone calls, referrals, appointments, emails or other demand depending on your service.
+            """
+        )
+
+        aht = st.number_input(
+            "Average handling time per contact (seconds)",
+            min_value=1.0,
+            value=180.0,
+            step=1.0,
+            help="""
+            The average amount of staff time needed to complete each contact.
+            Include all activities associated with the contact, such as administration, documentation and follow-up where appropriate.
+            """
+        )
+
+        asa = st.number_input(
+            "Target response time (seconds)",
+            min_value=1.0,
+            value=20.0,
+            step=1.0,
+            help="""
+            The maximum time a person should wait before their contact is answered.
+            For example, entering 20 means the model will calculate the percentage of contacts answered within 20 seconds.
+            """
+        )
+
+        interval = st.number_input(
+            "Planning period length (seconds)",
+            min_value=1,
+            value=1800,
+            step=60,
+            help="""
+            The period over which demand is expected to occur.
+            For example:
+            • 1800 seconds = 30 minutes
+            • 3600 seconds = 1 hour
+            • 14400 seconds = 4 hours
+            """
+        )
+
+        shrinkage_pct = st.slider(
+            "Staff unavailable time (%)",
+            min_value=0,
+            max_value=80,
+            value=30,
+            step=1,
+            help="""
+            The percentage of staff time unavailable for handling contacts due to annual leave,
+            sickness, training, meetings, supervision, breaks and other non-contact activities.
+            """
+        )
+
+        service_level_target = st.slider(
+            "Performance target (%)",
+            min_value=0.50,
+            max_value=0.99,
+            value=0.80,
+            step=0.01,
+            format="%.0f%%",
+            help="""
+            The percentage of contacts you would like answered within the target response time.
+            For example, 80% means 8 out of every 10 contacts should be answered within the target response time.
+            """
+        )
+
+        run_btn = st.button(
+            "Calculate staffing requirement",
+            type="primary"
+        )
+    
     st.markdown('### What this app does')
     st.write(
-        'It uses your input assumptions to calculate the staffing requirement using the pyworkforce Erlang C model.'
+        'It uses your input assumptions to calculate the staffing requirement using the Erlang C Model.'
         )
 
     if run_btn:
@@ -79,8 +150,8 @@ def workforce():
                 col2.metric(
                     "With Shrinkage",
                     summary.get("positions_with_shrinkage", "N/A")
-                )
-
+                    )
+                    
                 col3.metric(
                     "Service Level",
                     summary.get("service_level", "N/A")
@@ -90,6 +161,40 @@ def workforce():
                     "Occupancy",
                     summary.get("occupancy", "N/A")
                 )
+                
+                with st.expander("What is shrinkage?"):
+                
+                    st.write("""
+                    **Shrinkage** represents the proportion of paid staff time that is unavailable for handling contacts or delivering services.
+
+                    Examples of shrinkage include:
+
+                    - Annual leave
+                    - Sickness absence
+                    - Training and development
+                    - Team meetings
+                    - Supervision
+                    - Breaks
+                    - Administrative duties
+                    - Other non-contact activities
+
+                    Workforce planning calculations first determine how many staff need to be **available** to meet demand. Shrinkage is then applied to calculate how many staff need to be **employed** to achieve that level of availability.
+
+                    **Example**
+
+                    If 10 staff are required to be available and shrinkage is 30%:
+
+                    ```
+                    Required Staff = Available Staff ÷ (1 - Shrinkage)
+
+                    10 ÷ (1 - 0.30)
+                    = 14.3
+                    ```
+
+                    Therefore, approximately **15 staff would need to be employed** to ensure that 10 staff are available on average.
+
+                    Higher shrinkage percentages increase staffing requirements because a smaller proportion of staff time is available for direct service delivery.
+                    """)
 
                 st.divider()
 
@@ -293,7 +398,7 @@ def workforce():
                 st.subheader("Demand Sensitivity")
                 
                 st.info("""
-                        This chart shows how staffing requirements change as demand increases or decreases from the expected level. The baseline scenario (100%) represents the demand values entered into the calculator, while the other scenarios demonstrate the potential impact of lower or higher activity levels.
+                        This chart shows how staffing requirements (taking into account shrinkage) change as demand increases or decreases from the expected level. The baseline scenario (100%) represents the demand values entered into the calculator, while the other scenarios demonstrate the potential impact of lower or higher activity levels.
 
                         Understanding this relationship helps assess the resilience of the service. For example, if demand were to increase by 10% or 20%, the chart shows how many additional staff may be required to maintain the same service level target. Equally, it can highlight opportunities to redeploy resources during periods of reduced demand.
 

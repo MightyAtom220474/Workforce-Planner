@@ -20,9 +20,9 @@ def workforce():
 
         transactions = st.number_input(
             "Expected contacts during the period",
-            min_value=0.0,
-            value=100.0,
-            step=1.0,
+            min_value=0,
+            value=100,
+            step=1,
             help="""
             Enter the number of contacts you expect to receive during the selected planning period.
             This could include phone calls, referrals, appointments, emails or other demand depending on your service.
@@ -31,9 +31,9 @@ def workforce():
 
         aht = st.number_input(
             "Average handling time per contact (seconds)",
-            min_value=1.0,
-            value=180.0,
-            step=1.0,
+            min_value=1,
+            value=180,
+            step=1,
             help="""
             The average amount of staff time needed to complete each contact.
             Include all activities associated with the contact, such as administration, documentation and follow-up where appropriate.
@@ -42,9 +42,9 @@ def workforce():
 
         asa = st.number_input(
             "Target response time (seconds)",
-            min_value=1.0,
-            value=20.0,
-            step=1.0,
+            min_value=1,
+            value=20,
+            step=1,
             help="""
             The maximum time a person should wait before their contact is answered.
             For example, entering 20 means the model will calculate the percentage of contacts answered within 20 seconds.
@@ -77,18 +77,19 @@ def workforce():
             """
         )
 
-        service_level_target = st.slider(
+        service_level_target_pct = st.slider(
             "Performance target (%)",
-            min_value=0.50,
-            max_value=0.99,
-            value=0.80,
-            step=0.01,
-            format="%.0f%%",
+            min_value=50,
+            max_value=99,
+            value=80,
+            step=1,
             help="""
             The percentage of contacts you would like answered within the target response time.
             For example, 80% means 8 out of every 10 contacts should be answered within the target response time.
             """
         )
+
+        service_level_target = service_level_target_pct / 100
 
         run_btn = st.button(
             "Calculate staffing requirement",

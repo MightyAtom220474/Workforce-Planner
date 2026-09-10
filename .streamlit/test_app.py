@@ -6,7 +6,7 @@ import numpy as np
 import plotly.express as px
 import plotly.graph_objects as go
 
-from erlang_utils import calculate_staffing_curve, calculate_erlang, summarise_result
+from erlang_utils import calculate_staffing_curve, calculate_erlang, summarise_result, build_shift_curve, highlight_row # calculate_shift_results
 
 def workforce():
 
@@ -253,6 +253,39 @@ def workforce():
                         "With Shrinkage": night_result["positions_with_shrinkage"]
                     }
                 ])
+                
+                if mode == "Advanced Planner":
+
+                    day_curve = build_shift_curve(
+                        day_calls,
+                        aht,
+                        asa,
+                        int(interval),
+                        shrinkage_pct / 100,
+                        patience_time
+                    )
+
+                    evening_curve = build_shift_curve(
+                        evening_calls,
+                        aht,
+                        asa,
+                        int(interval),
+                        shrinkage_pct / 100,
+                        patience_time
+                    )
+
+                    night_curve = build_shift_curve(
+                        night_calls,
+                        aht,
+                        asa,
+                        int(interval),
+                        shrinkage_pct / 100,
+                        patience_time
+                    )
+                    
+                # if mode == "Advanced Planner":
+
+                #     st.write(shift_df)
 
             if mode == "Simple Planner":
 
@@ -276,28 +309,142 @@ def workforce():
             with tab1:
 
                 st.subheader("Recommended Staffing")
+                
+                if mode == "Advanced Planner":
 
-                col1, col2, col3, col4 = st.columns(4)
+                    day_result = calculate_erlang(
+                        transactions=day_calls,
+                        aht=aht,
+                        asa=asa,
+                        interval=28800,
+                        shrinkage=shrinkage_pct / 100,
+                        service_level_target=service_level_target,
+                        patience_time=patience_time
+                    )
 
-                col1.metric(
-                    "Required Staff",
-                    summary.get("positions", "N/A")
-                )
+                    evening_result = calculate_erlang(
+                        transactions=evening_calls,
+                        aht=aht,
+                        asa=asa,
+                        interval=28800,
+                        shrinkage=shrinkage_pct / 100,
+                        service_level_target=service_level_target,
+                        patience_time=patience_time
+                    )
 
-                col2.metric(
-                    "With Shrinkage",
-                    summary.get("positions_with_shrinkage", "N/A")
-                )
+                    night_result = calculate_erlang(
+                        transactions=night_calls,
+                        aht=aht,
+                        asa=asa,
+                        interval=28800,
+                        shrinkage=shrinkage_pct / 100,
+                        service_level_target=service_level_target,
+                        patience_time=patience_time
+                    )
 
-                col3.metric(
-                    "Service Level",
-                    f"{summary.get('service_level', 0) * 100:.1f}%"
-                )
+                if mode == "Simple Planner":
+                
+                    col1, col2, col3, col4 = st.columns(4)
 
-                col4.metric(
-                    "Occupancy",
-                    f"{summary.get('occupancy', 0) * 100:.1f}%"
-                )
+                    col1.metric(
+                        "Required Staff",
+                        summary.get("positions", "N/A")
+                    )
+
+                    col2.metric(
+                        "With Shrinkage",
+                        summary.get("positions_with_shrinkage", "N/A")
+                    )
+
+                    col3.metric(
+                        "Service Level",
+                        f"{summary.get('service_level', 0) * 100:.1f}%"
+                    )
+
+                    col4.metric(
+                        "Occupancy",
+                        f"{summary.get('occupancy', 0) * 100:.1f}%"
+                    )
+                
+                if mode == "Advanced Planner":
+
+                    st.divider()
+
+                    st.subheader("Shift Staffing Requirements")
+
+                    c1, c2, c3 = st.columns(3)
+
+                    with c1:
+                        st.metric(
+                            "🌅 Daytime Shift",
+                            day_result["positions_with_shrinkage"]
+                        )
+
+                    with c2:
+                        st.metric(
+                            "🌆 Evening Shift",
+                            evening_result["positions_with_shrinkage"]
+                        )
+
+                    with c3:
+                        st.metric(
+                            "🌙 Night Shift",
+                            night_result["positions_with_shrinkage"]
+                        )
+                        
+                    shift_df = pd.DataFrame(
+                        [
+                            {
+                                "Shift": "Daytime",
+                                "Calls": day_calls,
+                                "Required Staff":
+                                    day_result["positions"],
+                                "With Shrinkage":
+                                    day_result["positions_with_shrinkage"]
+                            },
+                            {
+                                "Shift": "Evening",
+                                "Calls": evening_calls,
+                                "Required Staff":
+                                    evening_result["positions"],
+                                "With Shrinkage":
+                                    evening_result["positions_with_shrinkage"]
+                            },
+                            {
+                                "Shift": "Night",
+                                "Calls": night_calls,
+                                "Required Staff":
+                                    night_result["positions"],
+                                "With Shrinkage":
+                                    night_result["positions_with_shrinkage"]
+                            }
+                        ]
+                    )
+
+                    st.dataframe(
+                        shift_df,
+                        use_container_width=True
+                    )
+                    
+                    st.subheader("Demand Profile by Shift")
+                    
+                    shift_fig = px.bar(
+                                        shift_df,
+                                        x="Shift",
+                                        y="Calls",
+                                        color="Calls",
+                                        text="Calls"
+                                        )
+
+                    shift_fig.update_layout(
+                        title="Demand Across Shifts",
+                        height=500
+                    )
+
+                    st.plotly_chart(
+                        shift_fig,
+                        use_container_width=True
+                    )
 
                 with st.expander("What is shrinkage?"):
                 
@@ -416,18 +563,42 @@ def workforce():
                             "Staffing Sensitivity Analysis"
                             )
 
+                # st.dataframe(
+                #             sensitivity_df.style.apply(
+                #                 lambda row: [
+                #                     "background-color: #fff3cd"
+                #                     if row["Staff"] == recommended_staff
+                #                     else ""
+                #                     for _ in row
+                #                 ],
+                #                 axis=1
+                #             ),
+                #             use_container_width=True
+                #             )
+                
+                styled_df = (
+                            scenario_df.style
+                            .apply(
+                                highlight_row,
+                                axis=1,
+                                recommended_staff=recommended_staff
+                            )
+                            )
+
+                
                 st.dataframe(
-                            sensitivity_df.style.apply(
-                                lambda row: [
-                                    "background-color: #fff3cd"
-                                    if row["Staff"] == recommended_staff
-                                    else ""
-                                    for _ in row
-                                ],
-                                axis=1
-                            ),
+                            styled_df,
                             use_container_width=True
                             )
+                
+                st.success(
+                            f"""
+                            Recommended staffing level: {recommended_staff} staff
+
+                            The yellow highlighted row represents the minimum staffing level
+                            required to achieve your target service level.
+                            """
+                        )
                 
             with tab2:
 
@@ -438,6 +609,42 @@ def workforce():
                         As staffing levels increase, the improvement in service level eventually begins to reduce.
                         Use this tab to identify the point of diminishing returns and determine whether additional staffing provides sufficient operational benefit.
                         """)
+                
+                if mode == "Advanced Planner":
+
+                    shift_comparison = pd.DataFrame([
+                        {
+                            "Shift": "Day",
+                            "Calls": day_calls,
+                            "Required Staff":
+                                day_result["positions_with_shrinkage"]
+                        },
+                        {
+                            "Shift": "Evening",
+                            "Calls": evening_calls,
+                            "Required Staff":
+                                evening_result["positions_with_shrinkage"]
+                        },
+                        {
+                            "Shift": "Night",
+                            "Calls": night_calls,
+                            "Required Staff":
+                                night_result["positions_with_shrinkage"]
+                        }
+                    ])
+
+                    fig_shift = px.bar(
+                        shift_comparison,
+                        x="Shift",
+                        y="Required Staff",
+                        text="Required Staff",
+                        color="Required Staff"
+                    )
+
+                    st.plotly_chart(
+                        fig_shift,
+                        use_container_width=True
+                    )
                 
                 fig = px.bar(
                     curve_df,
@@ -571,6 +778,27 @@ def workforce():
                     fig,
                     use_container_width=True
                 )
+                
+                st.subheader(
+                    "Abandonment Analysis"
+                )
+
+                fig = px.line(
+                    curve_df,
+                    x="staff",
+                    y="abandon_rate_pct",
+                    markers=True
+                )
+
+                fig.update_layout(
+                    title="Abandonment Rate by Staffing Level",
+                    yaxis_title="Abandonment %"
+                )
+
+                st.plotly_chart(
+                    fig,
+                    use_container_width=True
+                )
 
                 st.dataframe(
                     curve_df[
@@ -585,6 +813,25 @@ def workforce():
                     use_container_width=True
                 )
                 
+                st.subheader("Staffing Sensitivity Analysis")
+
+                recommended_staff = int(
+                    summary.get("positions", 0)
+                )
+
+                min_staff = max(
+                    1,
+                    recommended_staff - 5
+                )
+
+                max_staff = recommended_staff + 5
+
+                sensitivity_df = curve_df[
+                    (curve_df["staff"] >= min_staff)
+                    &
+                    (curve_df["staff"] <= max_staff)
+                ].copy()
+                                
             with tab4:
 
                 st.subheader("Demand Sensitivity")
@@ -684,7 +931,43 @@ def workforce():
                         ]),
                         use_container_width=True
                     )
+                    
+                    if mode == "Advanced Planner":
 
+                        st.subheader(
+                            "Demand Distribution By Shift"
+                        )
+
+                        shift_demand_df = pd.DataFrame([
+                            {
+                                "Shift": "Day",
+                                "Calls": day_calls
+                            },
+                            {
+                                "Shift": "Evening",
+                                "Calls": evening_calls
+                            },
+                            {
+                                "Shift": "Night",
+                                "Calls": night_calls
+                            }
+                        ])
+                        
+                        fig = px.pie(
+                            shift_demand_df,
+                            names="Shift",
+                            values="Calls",
+                            hole=0.4
+                            )
+
+                        fig.update_layout(
+                            title="Call Distribution Across Shifts"
+                            )
+
+                        st.plotly_chart(
+                            fig,
+                            use_container_width=True
+                            )
 
     #         col1, col2, col3, col4 = st.columns(4)
     #         col1.metric('Required positions', summary.get('positions', 'N/A'))

@@ -395,3 +395,64 @@ def calculate_abandonment_rate(
         0.0,
         min(1.0, abandon_rate)
     )
+    
+# def calculate_shift_results(
+#     calls,
+#     aht,
+#     asa,
+#     interval,
+#     shrinkage,
+#     service_level_target,
+#     patience_time
+# ):
+#     result = calculate_erlang(
+#         transactions=calls,
+#         aht=aht,
+#         asa=asa,
+#         interval=interval,
+#         shrinkage=shrinkage,
+#         service_level_target=service_level_target,
+#         patience_time=patience_time
+#     )
+
+#     summary = summarise_result(result)
+
+#     return {
+#         "calls": calls,
+#         "staff": summary.get("positions", 0),
+#         "staff_with_shrinkage": summary.get(
+#             "positions_with_shrinkage", 0
+#         ),
+#         "service_level":
+#             summary.get("service_level", 0) * 100,
+#         "occupancy":
+#             summary.get("occupancy", 0) * 100,
+#         "asa":
+#             summary.get("actual_asa", 0),
+#         "abandon_rate":
+#             summary.get("abandon_rate", 0) * 100
+#     }
+
+def build_shift_curve(
+    calls,
+    aht,
+    asa,
+    interval,
+    shrinkage,
+    patience_time
+):
+    return calculate_staffing_curve(
+        transactions=calls,
+        aht=aht,
+        asa=asa,
+        interval=interval,
+        shrinkage=shrinkage,
+        patience_time=patience_time
+    )
+
+def highlight_row(row, recommended_staff):
+
+    if row["staff"] == recommended_staff:
+        return ["background-color: #FFD700"] * len(row)
+
+    return [""] * len(row)

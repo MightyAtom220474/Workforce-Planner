@@ -18,9 +18,11 @@ def calculate_erlang(
     asa: float,
     interval: int,
     shrinkage: float = 0.0,
+    patience_time: float = 120,
     service_level_target: float = 0.80,
     max_staff_limit: int = 500
-):
+    ):
+
     """
     Calculate minimum staffing requirement using Erlang C.
 
@@ -53,7 +55,30 @@ def calculate_erlang(
         )
 
     occupancy = offered_load / required_staff
+    
+    asa_actual = calculate_asa(
+        transactions,
+        aht,
+        interval,
+        required_staff
+    )
 
+    immediate_answer_rate = (
+        calculate_immediate_answer_rate(
+            transactions,
+            aht,
+            interval,
+            required_staff
+        )
+    )
+
+    abandon_rate = calculate_abandonment_rate(
+                                            transactions,
+                                            aht,
+                                            interval,
+                                            required_staff,
+                                            patience_time=patience_time
+                                            )
     probability_waiting = (
         erlang_c_probability_of_waiting(
             offered_load,
@@ -76,7 +101,10 @@ def calculate_erlang(
         "service_level": achieved_service_level,
         "occupancy": occupancy,
         "waiting_probability": probability_waiting,
-        "shrinkage": shrinkage
+        "shrinkage": shrinkage,
+        "actual_asa": asa_actual,
+        "immediate_answer_rate": immediate_answer_rate,
+        "abandon_rate": abandon_rate
     }
 
 # def calculate_erlang(
@@ -146,6 +174,9 @@ def summarise_result(result: dict) -> dict:
         "occupancy": result.get("occupancy"),
         "waiting_probability": result.get("waiting_probability"),
         "offered_load": result.get("offered_load"),
+        "actual_asa": result.get("actual_asa"),
+        "immediate_answer_rate": result.get("immediate_answer_rate"),
+        "abandon_rate": result.get("abandon_rate")
     }
 
 def erlang_c_probability_of_waiting(traffic_intensity: float, staff: int) -> float:
@@ -192,9 +223,11 @@ def calculate_staffing_curve(
     asa: float,
     interval: int,
     shrinkage: float = 0.0,
+    patience_time: float = 120,
     max_staff_limit: int = 500,
     flattening_threshold: float = 0.0001,
-):
+    ):
+    
     rows = []
     staff = 1
     previous_service_level = None
@@ -220,18 +253,55 @@ def calculate_staffing_curve(
         occupancy_pct = (
             offered_load / staff
         ) * 100
+        
+        asa_actual = calculate_asa(
+            transactions,
+            aht,
+            interval,
+            staff
+        )
+
+        immediate_answer_pct = (
+            calculate_immediate_answer_rate(
+                transactions,
+                aht,
+                interval,
+                staff
+            ) * 100
+        )
+
+        abandon_rate_pct = (
+                            calculate_abandonment_rate(
+                                transactions=transactions,
+                                aht=aht,
+                                interval=interval,
+                                staff=staff,
+                                patience_time=patience_time
+                            ) * 100
+                        )
 
         rows.append(
-            {
-                "staff": staff,
-                "service_level": service_level,
-                "service_level_pct": service_level * 100,
-                "probability_waiting": p_wait * 100,
-                "occupancy_pct": occupancy_pct,
-                "offered_load": offered_load,
-                "adjusted_staff_for_shrinkage": adjusted_staff,
-            }
-        )
+                    {
+                        "staff": staff,
+                        "service_level": service_level,
+                        "service_level_pct": service_level * 100,
+                        "probability_waiting": p_wait * 100,
+                        "occupancy_pct": occupancy_pct,
+
+                        "asa_seconds": asa_actual,
+
+                        "answered_immediately_pct":
+                            immediate_answer_pct,
+
+                        "abandon_rate_pct":
+                            abandon_rate_pct,
+
+                        "offered_load": offered_load,
+
+                        "adjusted_staff_for_shrinkage":
+                            adjusted_staff
+                    }
+                )
 
         # Stop if service level is effectively 100%
         if service_level >= 0.999:
@@ -255,3 +325,73 @@ def calculate_staffing_curve(
     )
 
     return df
+
+def calculate_asa(
+    transactions: float,
+    aht: float,
+    interval: int,
+    staff: int
+) -> float:
+
+    offered_load = (transactions * aht) / interval
+
+    if staff <= offered_load:
+        return float("inf")
+
+    p_wait = erlang_c_probability_of_waiting(
+        offered_load,
+        staff
+    )
+
+    asa = p_wait * (
+        aht / (staff - offered_load)
+    )
+
+    return asa
+
+def calculate_immediate_answer_rate(
+    transactions: float,
+    aht: float,
+    interval: int,
+    staff: int
+) -> float:
+
+    offered_load = (transactions * aht) / interval
+
+    p_wait = erlang_c_probability_of_waiting(
+        offered_load,
+        staff
+    )
+
+    return max(0, 1 - p_wait)
+
+def calculate_abandonment_rate(
+    transactions: float,
+    aht: float,
+    interval: int,
+    staff: int,
+    patience_time: float
+) -> float:
+
+    offered_load = (transactions * aht) / interval
+
+    if staff <= offered_load:
+        return 1.0
+
+    p_wait = erlang_c_probability_of_waiting(
+        offered_load,
+        staff
+    )
+
+    abandon_rate = (
+        p_wait *
+        math.exp(
+            -((staff - offered_load) *
+              patience_time / aht)
+        )
+    )
+
+    return max(
+        0.0,
+        min(1.0, abandon_rate)
+    )

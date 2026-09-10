@@ -17,6 +17,15 @@ def workforce():
     with st.sidebar:
 
         st.header("Workload Assumptions")
+        
+        mode = st.radio(
+                        "Planner Mode",
+                        [
+                            "Simple Planner",
+                            "Advanced Planner"
+                        ],
+                        horizontal=False
+                        )
 
         transactions = st.number_input(
             "Expected contacts during the period",
@@ -96,6 +105,61 @@ def workforce():
         )
 
         service_level_target = service_level_target_pct / 100
+        
+        if mode == "Advanced Planner":
+
+            st.divider()
+
+            st.subheader("Advanced Queueing Settings")
+
+            patience_time = st.number_input(
+                "Average caller patience (seconds)",
+                min_value=10,
+                max_value=1800,
+                value=120,
+                step=10,
+                help="""
+                How long callers are willing to wait before abandoning.
+                """
+            )
+        
+        if mode == "Advanced Planner":
+
+            st.divider()
+
+            st.subheader("Shift Demand")
+
+            day_calls = st.number_input(
+                "Daytime Calls",
+                min_value=0,
+                value=int(transactions * 0.6),
+                help="""
+                Day Shift call rate e.g. number of calls between 8am and 4pm
+                """
+            )
+
+            evening_calls = st.number_input(
+                "Evening Calls",
+                min_value=0,
+                value=int(transactions * 0.3),
+                help="""
+                Evening Shift call rate e.g. number of calls between 4pm and Midnight
+                """
+            )
+
+            night_calls = st.number_input(
+                "Night Calls",
+                min_value=0,
+                value=int(transactions * 0.1),
+                help="""
+                Night Shift call rate e.g. number of calls between Midnight and 8am
+                """
+            )
+
+        else:
+
+            patience_time = 120
+
 
         run_btn = st.button(
             "Calculate staffing requirement",
@@ -110,13 +174,15 @@ def workforce():
     if run_btn:
         try:
             result = calculate_erlang(
-                transactions=transactions,
-                aht=aht,
-                asa=asa,
-                interval=int(interval),
-                shrinkage=shrinkage_pct / 100.0,
-                service_level_target=service_level_target
-            )
+                                    transactions=transactions,
+                                    aht=aht,
+                                    asa=asa,
+                                    interval=int(interval),
+                                    shrinkage=shrinkage_pct / 100.0,
+                                    service_level_target=service_level_target,
+                                    patience_time=patience_time
+                                    )
+
 
             result_df = pd.DataFrame([result])
             
@@ -125,23 +191,87 @@ def workforce():
                                                 aht=aht,
                                                 asa=asa,
                                                 interval=int(interval),
-                                                shrinkage=shrinkage_pct / 100
-                                            )
+                                                shrinkage=shrinkage_pct / 100,
+                                                patience_time=patience_time
+                                                )
 
             #st.dataframe(result_df, use_container_width=True)
             
             #summary = summarise_result(result)
             
             summary = summarise_result(result)
+            
+            if mode == "Advanced Planner":
 
-            tab1, tab2, tab3, tab4 = st.tabs(
-                [
+                day_result = calculate_erlang(
+                    transactions=day_calls,
+                    aht=aht,
+                    asa=asa,
+                    interval=8 * 60 * 60,  # 8 hours
+                    shrinkage=shrinkage_pct / 100,
+                    service_level_target=service_level_target,
+                    patience_time=patience_time
+                )
+
+                evening_result = calculate_erlang(
+                    transactions=evening_calls,
+                    aht=aht,
+                    asa=asa,
+                    interval=8 * 60 * 60,
+                    shrinkage=shrinkage_pct / 100,
+                    service_level_target=service_level_target,
+                    patience_time=patience_time
+                )
+
+                night_result = calculate_erlang(
+                    transactions=night_calls,
+                    aht=aht,
+                    asa=asa,
+                    interval=8 * 60 * 60,
+                    shrinkage=shrinkage_pct / 100,
+                    service_level_target=service_level_target,
+                    patience_time=patience_time
+                )
+
+                shift_df = pd.DataFrame([
+                    {
+                        "Shift": "08:00-16:00",
+                        "Calls": day_calls,
+                        "Required Staff": day_result["positions"],
+                        "With Shrinkage": day_result["positions_with_shrinkage"]
+                    },
+                    {
+                        "Shift": "16:00-00:00",
+                        "Calls": evening_calls,
+                        "Required Staff": evening_result["positions"],
+                        "With Shrinkage": evening_result["positions_with_shrinkage"]
+                    },
+                    {
+                        "Shift": "00:00-08:00",
+                        "Calls": night_calls,
+                        "Required Staff": night_result["positions"],
+                        "With Shrinkage": night_result["positions_with_shrinkage"]
+                    }
+                ])
+
+            if mode == "Simple Planner":
+
+                tab1, tab2, tab3, tab4 = st.tabs([
                     "📋 Staffing Recommendation",
                     "📈 Efficiency Analysis",
                     "⚠️ Risk Analysis",
                     "🔍 What-If Scenarios"
-                ]
-            )
+                ])
+
+            else:
+
+                tab1, tab2, tab3, tab4, tab5 = st.tabs([
+                    "📋 Staffing Recommendation",
+                    "📈 Efficiency Analysis",
+                    "⚠️ Risk Analysis",
+                    "🔍 What-If Scenarios",
+                    "☎️ Advanced Queue Analysis"
+                ])
             
             with tab1:
 
@@ -157,8 +287,8 @@ def workforce():
                 col2.metric(
                     "With Shrinkage",
                     summary.get("positions_with_shrinkage", "N/A")
-                    )
-                    
+                )
+
                 col3.metric(
                     "Service Level",
                     f"{summary.get('service_level', 0) * 100:.1f}%"
@@ -168,7 +298,7 @@ def workforce():
                     "Occupancy",
                     f"{summary.get('occupancy', 0) * 100:.1f}%"
                 )
-                
+
                 with st.expander("What is shrinkage?"):
                 
                     st.write("""
@@ -231,13 +361,73 @@ def workforce():
                 )
 
                 st.plotly_chart(fig, use_container_width=True)
+                
+                recommended_staff = result["positions"]
 
-                st.subheader("Full Staffing Curve")
+                scenario_df = curve_df.copy()
+
+                scenario_df = scenario_df[
+                    (
+                        scenario_df["staff"]
+                        >= recommended_staff - 5
+                    ) &
+                    (
+                        scenario_df["staff"]
+                        <= recommended_staff + 5
+                    )
+                ]
+
+                recommended_staff = int(
+                                        summary.get("positions", 0)
+                                        )
+                
+                min_staff = max(
+                                1,
+                                recommended_staff - 5
+                                )
+
+                max_staff = recommended_staff + 5
+                
+                sensitivity_df = curve_df[
+                                        (curve_df["staff"] >= min_staff)
+                                        &
+                                        (curve_df["staff"] <= max_staff)
+                                        ].copy()
+                
+                sensitivity_df = sensitivity_df[
+                                                [
+                                                "staff",
+                                                "service_level_pct",
+                                                "occupancy_pct",
+                                                "asa_seconds",
+                                                "abandon_rate_pct"
+                                                ]
+                                                ]
+                
+                sensitivity_df.columns = [
+                                        "Staff",
+                                        "Service Level %",
+                                        "Occupancy %",
+                                        "ASA (Seconds)",
+                                        "Abandon Rate %"
+                                        ]
+                
+                st.subheader(
+                            "Staffing Sensitivity Analysis"
+                            )
 
                 st.dataframe(
-                    curve_df,
-                    use_container_width=True
-                )
+                            sensitivity_df.style.apply(
+                                lambda row: [
+                                    "background-color: #fff3cd"
+                                    if row["Staff"] == recommended_staff
+                                    else ""
+                                    for _ in row
+                                ],
+                                axis=1
+                            ),
+                            use_container_width=True
+                            )
                 
             with tab2:
 
@@ -417,7 +607,8 @@ def workforce():
                         asa=asa,
                         interval=int(interval),
                         shrinkage=shrinkage_pct / 100.0,
-                        service_level_target=service_level_target
+                        service_level_target=service_level_target,
+                        patience_time=patience_time
                     )
 
                     scenario_summary = summarise_result(
@@ -460,6 +651,39 @@ def workforce():
                     scenario_df,
                     use_container_width=True
                 )
+            
+            if mode == "Advanced Planner":
+
+                with tab5:
+                    
+                    st.subheader("Shift Staffing Requirements")
+
+                    st.dataframe(
+                        shift_df,
+                        use_container_width=True
+                    )
+
+                    st.subheader(
+                        "Advanced Queueing Metrics"
+                    )
+
+                    st.dataframe(
+                        pd.DataFrame([
+                            {
+                                "Metric": "ASA",
+                                "Value": f"{summary.get('actual_asa',0):.1f}s"
+                            },
+                            {
+                                "Metric": "Answered Immediately",
+                                "Value": f"{summary.get('immediate_answer_rate',0)*100:.1f}%"
+                            },
+                            {
+                                "Metric": "Abandon Rate",
+                                "Value": f"{summary.get('abandon_rate',0)*100:.2f}%"
+                            }
+                        ]),
+                        use_container_width=True
+                    )
 
 
     #         col1, col2, col3, col4 = st.columns(4)

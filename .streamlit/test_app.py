@@ -128,38 +128,58 @@ def workforce():
             st.divider()
 
             st.subheader("Shift Demand")
+            
+            st.info(
+                    """
+                    Advanced mode uses peak interval demand rather than total shift volume.
+
+                    Erlang C staffing calculations are based on the busiest planning period,
+                    typically 30 minutes.
+
+                    Enter the highest demand expected during a single planning interval for
+                    each shift rather than the total number of calls received across the shift.
+                    """
+                    )
 
             day_calls = st.number_input(
-                "Daytime Calls",
+                "Peak Daytime Call Rate",
                 min_value=0,
-                value=int(transactions * 0.6),
+                value=100,
                 help="""
-                Day Shift call rate e.g. number of calls between 8am and 4pm
-                """
-            )
+                    Enter the busiest interval demand for the Daytime shift.
+
+                    For example, if the busiest 30-minute period receives 22 calls,
+                    enter 22.
+                    """
+                    )
 
             evening_calls = st.number_input(
-                "Evening Calls",
+                "Peak Evening Call Rate",
                 min_value=0,
-                value=int(transactions * 0.3),
+                value=80,
                 help="""
-                Evening Shift call rate e.g. number of calls between 4pm and Midnight
-                """
-            )
+                    Enter the busiest interval demand for the Evening shift.
+
+                    For example, if the busiest 30-minute period receives 18 calls,
+                    enter 18.
+                    """
+                    )
 
             night_calls = st.number_input(
-                "Night Calls",
+                "Peak Nighttime Call Rate",
                 min_value=0,
-                value=int(transactions * 0.1),
+                value=60,
                 help="""
-                Night Shift call rate e.g. number of calls between Midnight and 8am
-                """
-            )
+                    Enter the busiest interval demand for the Night shift.
+
+                    For example, if the busiest 30-minute period receives 12 calls,
+                    enter 12.
+                    """
+                    )  
 
         else:
 
             patience_time = 120
-
 
         run_btn = st.button(
             "Calculate staffing requirement",
@@ -482,16 +502,52 @@ def workforce():
 
                 st.divider()
 
-                fig = go.Figure()
+                if mode == "Simple Planner":
 
-                fig.add_trace(
-                    go.Bar(
-                        x=curve_df["staff"],
-                        y=curve_df["service_level_pct"],
-                        name="Service Level %",
-                        marker_color="#1f77b4"
+                    fig = go.Figure()
+
+                    fig.add_trace(
+                        go.Bar(
+                            x=curve_df["staff"],
+                            y=curve_df["service_level_pct"],
+                            name="Service Level %",
+                            marker_color="#1f77b4"
+                        )
                     )
-                )
+
+                else:
+
+                    fig = go.Figure()
+
+                    fig.add_trace(
+                        go.Scatter(
+                            x=day_curve["staff"],
+                            y=day_curve["service_level_pct"],
+                            mode="lines+markers",
+                            name="Day Shift",
+                            line=dict(color="green", width=3)
+                        )
+                    )
+
+                    fig.add_trace(
+                        go.Scatter(
+                            x=evening_curve["staff"],
+                            y=evening_curve["service_level_pct"],
+                            mode="lines+markers",
+                            name="Evening Shift",
+                            line=dict(color="orange", width=3)
+                        )
+                    )
+
+                    fig.add_trace(
+                        go.Scatter(
+                            x=night_curve["staff"],
+                            y=night_curve["service_level_pct"],
+                            mode="lines+markers",
+                            name="Night Shift",
+                            line=dict(color="purple", width=3)
+                        )
+                    )
 
                 fig.add_hline(
                     y=service_level_target * 100,
@@ -507,7 +563,10 @@ def workforce():
                     height=500
                 )
 
-                st.plotly_chart(fig, use_container_width=True)
+                st.plotly_chart(
+                    fig,
+                    use_container_width=True
+                )
                 
                 recommended_staff = result["positions"]
 

@@ -214,6 +214,17 @@ def workforce():
                                                 shrinkage=shrinkage_pct / 100,
                                                 patience_time=patience_time
                                                 )
+            
+            curve_df["risk_zone"] = np.where(
+                            curve_df["occupancy_pct"] > 90,
+                            "High Risk",
+                            np.where(
+                                curve_df["occupancy_pct"] > 80,
+                                "Medium Risk",
+                                "Healthy"
+                            )
+                        )
+            
 
             #st.dataframe(result_df, use_container_width=True)
             
@@ -227,7 +238,7 @@ def workforce():
                     transactions=day_calls,
                     aht=aht,
                     asa=asa,
-                    interval=8 * 60 * 60,  # 8 hours
+                    interval=int(interval),
                     shrinkage=shrinkage_pct / 100,
                     service_level_target=service_level_target,
                     patience_time=patience_time
@@ -237,7 +248,7 @@ def workforce():
                     transactions=evening_calls,
                     aht=aht,
                     asa=asa,
-                    interval=8 * 60 * 60,
+                    interval=int(interval),
                     shrinkage=shrinkage_pct / 100,
                     service_level_target=service_level_target,
                     patience_time=patience_time
@@ -247,7 +258,7 @@ def workforce():
                     transactions=night_calls,
                     aht=aht,
                     asa=asa,
-                    interval=8 * 60 * 60,
+                    interval=int(interval),
                     shrinkage=shrinkage_pct / 100,
                     service_level_target=service_level_target,
                     patience_time=patience_time
@@ -307,25 +318,13 @@ def workforce():
 
                 #     st.write(shift_df)
 
-            if mode == "Simple Planner":
-
-                tab1, tab2, tab3, tab4 = st.tabs([
-                    "📋 Staffing Recommendation",
-                    "📈 Efficiency Analysis",
-                    "⚠️ Risk Analysis",
-                    "🔍 What-If Scenarios"
+            tab1, tab2 = st.tabs([
+                "📈 Staffing Recommendation",
+                "📋 Supporting Data"
+                # "⚠️ Risk Analysis",
+                # "🔍 What-If Scenarios"
                 ])
-
-            else:
-
-                tab1, tab2, tab3, tab4, tab5 = st.tabs([
-                    "📋 Staffing Recommendation",
-                    "📈 Efficiency Analysis",
-                    "⚠️ Risk Analysis",
-                    "🔍 What-If Scenarios",
-                    "☎️ Advanced Queue Analysis"
-                ])
-            
+       
             with tab1:
 
                 st.subheader("Recommended Staffing")
@@ -336,7 +335,7 @@ def workforce():
                         transactions=day_calls,
                         aht=aht,
                         asa=asa,
-                        interval=28800,
+                        interval=int(interval),
                         shrinkage=shrinkage_pct / 100,
                         service_level_target=service_level_target,
                         patience_time=patience_time
@@ -346,7 +345,7 @@ def workforce():
                         transactions=evening_calls,
                         aht=aht,
                         asa=asa,
-                        interval=28800,
+                        interval=int(interval),
                         shrinkage=shrinkage_pct / 100,
                         service_level_target=service_level_target,
                         patience_time=patience_time
@@ -356,7 +355,7 @@ def workforce():
                         transactions=night_calls,
                         aht=aht,
                         asa=asa,
-                        interval=28800,
+                        interval=int(interval),
                         shrinkage=shrinkage_pct / 100,
                         service_level_target=service_level_target,
                         patience_time=patience_time
@@ -390,7 +389,41 @@ def workforce():
 
                     st.divider()
 
-                    st.subheader("Shift Staffing Requirements")
+                    st.subheader("Shift Staffing Requirements (with shrinkage)")
+                    
+                    with st.expander("What is shrinkage?"):
+                                    
+                                        st.write("""
+                                        **Shrinkage** represents the proportion of paid staff time that is unavailable for handling contacts or delivering services.
+                    
+                                        Examples of shrinkage include:
+                    
+                                        - Annual leave
+                                        - Sickness absence
+                                        - Training and development
+                                        - Team meetings
+                                        - Supervision
+                                        - Breaks
+                                        - Administrative duties
+                                        - Other non-contact activities
+                    
+                                        Workforce planning calculations first determine how many staff need to be **available** to meet demand. Shrinkage is then applied to calculate how many staff need to be **employed** to achieve that level of availability.
+                    
+                                        **Example**
+                    
+                                        If 10 staff are required to be available and shrinkage is 30%:
+                    
+                                        ```
+                                        Required Staff = Available Staff ÷ (1 - Shrinkage)
+                    
+                                        10 ÷ (1 - 0.30)
+                                        = 14.3
+                                        ```
+                    
+                                        Therefore, approximately **15 staff would need to be employed** to ensure that 10 staff are available on average.
+                    
+                                        Higher shrinkage percentages increase staffing requirements because a smaller proportion of staff time is available for direct service delivery.
+                                        """)
 
                     c1, c2, c3 = st.columns(3)
 
@@ -440,88 +473,114 @@ def workforce():
                             }
                         ]
                     )
-
-                    st.dataframe(
-                        shift_df,
-                        use_container_width=True
-                    )
                     
-                    st.subheader("Demand Profile by Shift")
                     
-                    shift_fig = px.bar(
-                                        shift_df,
-                                        x="Shift",
-                                        y="Calls",
-                                        color="Calls",
-                                        text="Calls"
-                                        )
-
-                    shift_fig.update_layout(
-                        title="Demand Across Shifts",
-                        height=500
-                    )
-
-                    st.plotly_chart(
-                        shift_fig,
-                        use_container_width=True
-                    )
-
-                with st.expander("What is shrinkage?"):
-                
-                    st.write("""
-                    **Shrinkage** represents the proportion of paid staff time that is unavailable for handling contacts or delivering services.
-
-                    Examples of shrinkage include:
-
-                    - Annual leave
-                    - Sickness absence
-                    - Training and development
-                    - Team meetings
-                    - Supervision
-                    - Breaks
-                    - Administrative duties
-                    - Other non-contact activities
-
-                    Workforce planning calculations first determine how many staff need to be **available** to meet demand. Shrinkage is then applied to calculate how many staff need to be **employed** to achieve that level of availability.
-
-                    **Example**
-
-                    If 10 staff are required to be available and shrinkage is 30%:
-
-                    ```
-                    Required Staff = Available Staff ÷ (1 - Shrinkage)
-
-                    10 ÷ (1 - 0.30)
-                    = 14.3
-                    ```
-
-                    Therefore, approximately **15 staff would need to be employed** to ensure that 10 staff are available on average.
-
-                    Higher shrinkage percentages increase staffing requirements because a smaller proportion of staff time is available for direct service delivery.
-                    """)
 
                 st.divider()
 
                 if mode == "Simple Planner":
+                
+                    fig1 = go.Figure()
 
-                    fig = go.Figure()
-
-                    fig.add_trace(
-                        go.Bar(
-                            x=curve_df["staff"],
+                    fig1.add_trace(
+                        go.Scatter(
+                            x=curve_df["adjusted_staff_for_shrinkage"],
                             y=curve_df["service_level_pct"],
+                            mode="lines+markers",
                             name="Service Level %",
-                            marker_color="#1f77b4"
+                            line=dict(color="#1f77b4",
+                                      width=3
+                            ),
+                        marker=dict(size=8)
                         )
+                    )
+                    
+                    st.plotly_chart(
+                                    fig1,
+                                    use_container_width=True
+                                    )
+                    
+                    fig1.add_hline(
+                                    y=service_level_target * 100,
+                                    line_dash="dash",
+                                    line_color="red",
+                                    annotation_text=f"Target {service_level_target:.0%}"
+                                    )
+                
+                    fig1.update_layout(
+                        title="Service Level by Staffing",
+                        xaxis_title="Staff",
+                        yaxis_title="Service Level %",
+                        height=500
+                        )
+                    
+                    st.subheader("Risk Categorisation")
+                                    
+                    st.info("""
+                                        This view highlights the operational risks associated with different staffing levels.
+                                        Higher occupancy means staff spend more time continuously handling contacts, which can increase pressure, reduce flexibility and impact resilience.
+                                        Use this tab to identify staffing levels that balance performance with workforce wellbeing and sustainability.
+                                        """)
+
+                    fig2 = px.scatter(
+                                    curve_df,
+                                    x="staff",
+                                    y="service_level_pct",
+                                    size="occupancy_pct",
+                                    color="risk_zone",
+                                    hover_data=[
+                                        "occupancy_pct",
+                                        "probability_waiting"
+                                    ],
+                                    color_discrete_map={
+                                        "Healthy": "green",
+                                        "Medium Risk": "orange",
+                                        "High Risk": "red"
+                                    }
+                                )
+
+                    fig2.update_layout(
+                        title="Staffing Risk Profile"
+                    )
+
+                    st.plotly_chart(
+                        fig2,
+                        use_container_width=True
+                    )
+                    
+                    st.subheader("Occupancy Analysis")
+                                    
+                    fig3 = px.line(
+                        curve_df,
+                        x="staff",
+                        y="occupancy_pct",
+                        markers=True
+                    )
+    
+                    fig3.add_hline(
+                        y=85,
+                        line_color="red",
+                        line_dash="dash",
+                        annotation_text="85% Occupancy Threshold"
+                    )
+    
+                    fig3.update_layout(
+                        title="Occupancy by Staff Level",
+                        yaxis_title="Occupancy %"
+                    )
+    
+                    st.plotly_chart(
+                        fig3,
+                        use_container_width=True
                     )
 
                 else:
 
-                    fig = go.Figure()
+                    fig1 = go.Figure()
 
-                    fig.add_trace(
+                    fig1.add_trace(
                         go.Scatter(
-                            x=day_curve["staff"],
+                            x=day_curve["adjusted_staff_for_shrinkage"],
                             y=day_curve["service_level_pct"],
                             mode="lines+markers",
                             name="Day Shift",
@@ -529,9 +588,9 @@ def workforce():
                         )
                     )
 
-                    fig.add_trace(
+                    fig1.add_trace(
                         go.Scatter(
-                            x=evening_curve["staff"],
+                            x=evening_curve["adjusted_staff_for_shrinkage"],
                             y=evening_curve["service_level_pct"],
                             mode="lines+markers",
                             name="Evening Shift",
@@ -539,35 +598,73 @@ def workforce():
                         )
                     )
 
-                    fig.add_trace(
+                    fig1.add_trace(
                         go.Scatter(
-                            x=night_curve["staff"],
+                            x=night_curve["adjusted_staff_for_shrinkage"],
                             y=night_curve["service_level_pct"],
                             mode="lines+markers",
                             name="Night Shift",
                             line=dict(color="purple", width=3)
                         )
                     )
-
-                fig.add_hline(
-                    y=service_level_target * 100,
-                    line_dash="dash",
-                    line_color="red",
-                    annotation_text=f"Target {service_level_target:.0%}"
-                )
-
-                fig.update_layout(
-                    title="Service Level by Staffing",
-                    xaxis_title="Staff",
-                    yaxis_title="Service Level %",
-                    height=500
-                )
-
-                st.plotly_chart(
-                    fig,
-                    use_container_width=True
-                )
+                    
+                    st.plotly_chart(
+                                    fig1,
+                                    use_container_width=True
+                                )
+                    
+                    fig1.add_hline(
+                                    y=service_level_target * 100,
+                                    line_dash="dash",
+                                    line_color="red",
+                                    annotation_text=f"Target {service_level_target:.0%}"
+                                    )
                 
+                    fig1.update_layout(
+                        title="Service Level by Staffing",
+                        xaxis_title="Staff",
+                        yaxis_title="Service Level %",
+                        height=500
+                        )
+
+                    st.divider()
+
+                    st.subheader(
+                        "Demand Distribution By Shift"
+                    )
+
+                    shift_demand_df = pd.DataFrame([
+                        {
+                            "Shift": "Day",
+                            "Calls": day_calls
+                        },
+                        {
+                            "Shift": "Evening",
+                            "Calls": evening_calls
+                        },
+                        {
+                            "Shift": "Night",
+                            "Calls": night_calls
+                        }
+                    ])
+                    
+                    fig = px.pie(
+                        shift_demand_df,
+                        names="Shift",
+                        values="Calls",
+                        hole=0.4
+                        )
+
+                    fig.update_layout(
+                        title="Call Distribution Across Shifts"
+                        )
+
+                    st.plotly_chart(
+                        fig,
+                        use_container_width=True
+                        )
+                
+
                 recommended_staff = result["positions"]
 
                 scenario_df = curve_df.copy()
@@ -661,7 +758,7 @@ def workforce():
                 
             with tab2:
 
-                st.subheader("Marginal Improvement Analysis")
+                st.subheader("Supporting Data")
                 
                 st.info("""
                         This view shows the benefit gained from each additional member of staff.
@@ -766,267 +863,267 @@ def workforce():
                     use_container_width=True
                 )
                 
-            with tab3:
+            # with tab3:
 
-                st.subheader("Occupancy Analysis")
+            #     st.subheader("Occupancy Analysis")
                 
-                fig = px.line(
-                    curve_df,
-                    x="staff",
-                    y="occupancy_pct",
-                    markers=True
-                )
+            #     fig = px.line(
+            #         curve_df,
+            #         x="staff",
+            #         y="occupancy_pct",
+            #         markers=True
+            #     )
 
-                fig.add_hline(
-                    y=85,
-                    line_color="red",
-                    line_dash="dash",
-                    annotation_text="85% Occupancy Threshold"
-                )
+            #     fig.add_hline(
+            #         y=85,
+            #         line_color="red",
+            #         line_dash="dash",
+            #         annotation_text="85% Occupancy Threshold"
+            #     )
 
-                fig.update_layout(
-                    title="Occupancy by Staff Level",
-                    yaxis_title="Occupancy %"
-                )
+            #     fig.update_layout(
+            #         title="Occupancy by Staff Level",
+            #         yaxis_title="Occupancy %"
+            #     )
 
-                st.plotly_chart(
-                    fig,
-                    use_container_width=True
-                )
+            #     st.plotly_chart(
+            #         fig,
+            #         use_container_width=True
+            #     )
 
-                curve_df["risk_zone"] = np.where(
-                    curve_df["occupancy_pct"] > 90,
-                    "High Risk",
-                    np.where(
-                        curve_df["occupancy_pct"] > 80,
-                        "Medium Risk",
-                        "Healthy"
-                    )
-                )
+            #     curve_df["risk_zone"] = np.where(
+            #         curve_df["occupancy_pct"] > 90,
+            #         "High Risk",
+            #         np.where(
+            #             curve_df["occupancy_pct"] > 80,
+            #             "Medium Risk",
+            #             "Healthy"
+            #         )
+            #     )
 
-                st.subheader("Risk Categorisation")
+            #     st.subheader("Risk Categorisation")
                 
-                st.info("""
-                                    This view highlights the operational risks associated with different staffing levels.
-                                    Higher occupancy means staff spend more time continuously handling contacts, which can increase pressure, reduce flexibility and impact resilience.
-                                    Use this tab to identify staffing levels that balance performance with workforce wellbeing and sustainability.
-                                    """)
+            #     st.info("""
+            #                         This view highlights the operational risks associated with different staffing levels.
+            #                         Higher occupancy means staff spend more time continuously handling contacts, which can increase pressure, reduce flexibility and impact resilience.
+            #                         Use this tab to identify staffing levels that balance performance with workforce wellbeing and sustainability.
+            #                         """)
 
-                fig = px.scatter(
-                                curve_df,
-                                x="staff",
-                                y="service_level_pct",
-                                size="occupancy_pct",
-                                color="risk_zone",
-                                hover_data=[
-                                    "occupancy_pct",
-                                    "probability_waiting"
-                                ],
-                                color_discrete_map={
-                                    "Healthy": "green",
-                                    "Medium Risk": "orange",
-                                    "High Risk": "red"
-                                }
-                            )
+            #     fig = px.scatter(
+            #                     curve_df,
+            #                     x="staff",
+            #                     y="service_level_pct",
+            #                     size="occupancy_pct",
+            #                     color="risk_zone",
+            #                     hover_data=[
+            #                         "occupancy_pct",
+            #                         "probability_waiting"
+            #                     ],
+            #                     color_discrete_map={
+            #                         "Healthy": "green",
+            #                         "Medium Risk": "orange",
+            #                         "High Risk": "red"
+            #                     }
+            #                 )
 
-                fig.update_layout(
-                    title="Staffing Risk Profile"
-                )
+            #     fig.update_layout(
+            #         title="Staffing Risk Profile"
+            #     )
 
-                st.plotly_chart(
-                    fig,
-                    use_container_width=True
-                )
+            #     st.plotly_chart(
+            #         fig,
+            #         use_container_width=True
+            #     )
                 
-                st.subheader(
-                    "Abandonment Analysis"
-                )
+            #     st.subheader(
+            #         "Abandonment Analysis"
+            #     )
 
-                fig = px.line(
-                    curve_df,
-                    x="staff",
-                    y="abandon_rate_pct",
-                    markers=True
-                )
+            #     fig = px.line(
+            #         curve_df,
+            #         x="staff",
+            #         y="abandon_rate_pct",
+            #         markers=True
+            #     )
 
-                fig.update_layout(
-                    title="Abandonment Rate by Staffing Level",
-                    yaxis_title="Abandonment %"
-                )
+            #     fig.update_layout(
+            #         title="Abandonment Rate by Staffing Level",
+            #         yaxis_title="Abandonment %"
+            #     )
 
-                st.plotly_chart(
-                    fig,
-                    use_container_width=True
-                )
+            #     st.plotly_chart(
+            #         fig,
+            #         use_container_width=True
+            #     )
 
-                st.dataframe(
-                    curve_df[
-                        [
-                            "staff",
-                            "service_level_pct",
-                            "occupancy_pct",
-                            "probability_waiting",
-                            "risk_zone"
-                        ]
-                    ],
-                    use_container_width=True
-                )
+            #     st.dataframe(
+            #         curve_df[
+            #             [
+            #                 "staff",
+            #                 "service_level_pct",
+            #                 "occupancy_pct",
+            #                 "probability_waiting",
+            #                 "risk_zone"
+            #             ]
+            #         ],
+            #         use_container_width=True
+            #     )
                 
-                st.subheader("Staffing Sensitivity Analysis")
+            #     st.subheader("Staffing Sensitivity Analysis")
 
-                recommended_staff = int(
-                    summary.get("positions", 0)
-                )
+            #     recommended_staff = int(
+            #         summary.get("positions", 0)
+            #     )
 
-                min_staff = max(
-                    1,
-                    recommended_staff - 5
-                )
+            #     min_staff = max(
+            #         1,
+            #         recommended_staff - 5
+            #     )
 
-                max_staff = recommended_staff + 5
+            #     max_staff = recommended_staff + 5
 
-                sensitivity_df = curve_df[
-                    (curve_df["staff"] >= min_staff)
-                    &
-                    (curve_df["staff"] <= max_staff)
-                ].copy()
+            #     sensitivity_df = curve_df[
+            #         (curve_df["staff"] >= min_staff)
+            #         &
+            #         (curve_df["staff"] <= max_staff)
+            #     ].copy()
                                 
-            with tab4:
+            # with tab4:
 
-                st.subheader("Demand Sensitivity")
+            #     st.subheader("Demand Sensitivity")
                 
-                st.info("""
-                        This chart shows how staffing requirements (taking into account shrinkage) change as demand increases or decreases from the expected level. The baseline scenario (100%) represents the demand values entered into the calculator, while the other scenarios demonstrate the potential impact of lower or higher activity levels.
+            #     st.info("""
+            #             This chart shows how staffing requirements (taking into account shrinkage) change as demand increases or decreases from the expected level. The baseline scenario (100%) represents the demand values entered into the calculator, while the other scenarios demonstrate the potential impact of lower or higher activity levels.
 
-                        Understanding this relationship helps assess the resilience of the service. For example, if demand were to increase by 10% or 20%, the chart shows how many additional staff may be required to maintain the same service level target. Equally, it can highlight opportunities to redeploy resources during periods of reduced demand.
+            #             Understanding this relationship helps assess the resilience of the service. For example, if demand were to increase by 10% or 20%, the chart shows how many additional staff may be required to maintain the same service level target. Equally, it can highlight opportunities to redeploy resources during periods of reduced demand.
 
-                        Use this analysis to support business continuity planning, seasonal demand modelling, service redesign discussions, and workforce planning decisions. It provides a simple way to understand the potential staffing implications of changes in activity before they occur.
-                        """)
+            #             Use this analysis to support business continuity planning, seasonal demand modelling, service redesign discussions, and workforce planning decisions. It provides a simple way to understand the potential staffing implications of changes in activity before they occur.
+            #             """)
 
-                scenarios = []
+            #     scenarios = []
 
-                for multiplier in [0.8, 0.9, 1.0, 1.1, 1.2]:
+            #     for multiplier in [0.8, 0.9, 1.0, 1.1, 1.2]:
 
-                    scenario_result = calculate_erlang(
-                        transactions=transactions * multiplier,
-                        aht=aht,
-                        asa=asa,
-                        interval=int(interval),
-                        shrinkage=shrinkage_pct / 100.0,
-                        service_level_target=service_level_target,
-                        patience_time=patience_time
-                    )
+            #         scenario_result = calculate_erlang(
+            #             transactions=transactions * multiplier,
+            #             aht=aht,
+            #             asa=asa,
+            #             interval=int(interval),
+            #             shrinkage=shrinkage_pct / 100.0,
+            #             service_level_target=service_level_target,
+            #             patience_time=patience_time
+            #         )
 
-                    scenario_summary = summarise_result(
-                        scenario_result
-                    )
+            #         scenario_summary = summarise_result(
+            #             scenario_result
+            #         )
 
-                    scenarios.append(
-                        {
-                            "Demand Scenario":
-                                f"{int(multiplier * 100)}%",
-                            "Required Staff":
-                                scenario_summary.get(
-                                    "positions_with_shrinkage",
-                                    np.nan
-                                )
-                        }
-                    )
+            #         scenarios.append(
+            #             {
+            #                 "Demand Scenario":
+            #                     f"{int(multiplier * 100)}%",
+            #                 "Required Staff":
+            #                     scenario_summary.get(
+            #                         "positions_with_shrinkage",
+            #                         np.nan
+            #                     )
+            #             }
+            #         )
 
-                scenario_df = pd.DataFrame(
-                    scenarios
-                )
+            #     scenario_df = pd.DataFrame(
+            #         scenarios
+            #     )
 
-                fig = px.bar(
-                    scenario_df,
-                    x="Demand Scenario",
-                    y="Required Staff",
-                    color="Required Staff"
-                )
+            #     fig = px.bar(
+            #         scenario_df,
+            #         x="Demand Scenario",
+            #         y="Required Staff",
+            #         color="Required Staff"
+            #     )
 
-                fig.update_layout(
-                    title="Demand Sensitivity Analysis"
-                )
+            #     fig.update_layout(
+            #         title="Demand Sensitivity Analysis"
+            #     )
 
-                st.plotly_chart(
-                    fig,
-                    use_container_width=True
-                )
+            #     st.plotly_chart(
+            #         fig,
+            #         use_container_width=True
+            #     )
 
-                st.dataframe(
-                    scenario_df,
-                    use_container_width=True
-                )
+            #     st.dataframe(
+            #         scenario_df,
+            #         use_container_width=True
+            #     )
             
-            if mode == "Advanced Planner":
+            # if mode == "Advanced Planner":
 
-                with tab5:
+            #     with tab5:
                     
-                    st.subheader("Shift Staffing Requirements")
+            #         st.subheader("Shift Staffing Requirements")
 
-                    st.dataframe(
-                        shift_df,
-                        use_container_width=True
-                    )
+            #         st.dataframe(
+            #             shift_df,
+            #             use_container_width=True
+            #         )
 
-                    st.subheader(
-                        "Advanced Queueing Metrics"
-                    )
+            #         st.subheader(
+            #             "Advanced Queueing Metrics"
+            #         )
 
-                    st.dataframe(
-                        pd.DataFrame([
-                            {
-                                "Metric": "ASA",
-                                "Value": f"{summary.get('actual_asa',0):.1f}s"
-                            },
-                            {
-                                "Metric": "Answered Immediately",
-                                "Value": f"{summary.get('immediate_answer_rate',0)*100:.1f}%"
-                            },
-                            {
-                                "Metric": "Abandon Rate",
-                                "Value": f"{summary.get('abandon_rate',0)*100:.2f}%"
-                            }
-                        ]),
-                        use_container_width=True
-                    )
+            #         st.dataframe(
+            #             pd.DataFrame([
+            #                 {
+            #                     "Metric": "ASA",
+            #                     "Value": f"{summary.get('actual_asa',0):.1f}s"
+            #                 },
+            #                 {
+            #                     "Metric": "Answered Immediately",
+            #                     "Value": f"{summary.get('immediate_answer_rate',0)*100:.1f}%"
+            #                 },
+            #                 {
+            #                     "Metric": "Abandon Rate",
+            #                     "Value": f"{summary.get('abandon_rate',0)*100:.2f}%"
+            #                 }
+            #             ]),
+            #             use_container_width=True
+            #         )
                     
-                    if mode == "Advanced Planner":
+            #         if mode == "Advanced Planner":
 
-                        st.subheader(
-                            "Demand Distribution By Shift"
-                        )
+            #             st.subheader(
+            #                 "Demand Distribution By Shift"
+            #             )
 
-                        shift_demand_df = pd.DataFrame([
-                            {
-                                "Shift": "Day",
-                                "Calls": day_calls
-                            },
-                            {
-                                "Shift": "Evening",
-                                "Calls": evening_calls
-                            },
-                            {
-                                "Shift": "Night",
-                                "Calls": night_calls
-                            }
-                        ])
+            #             shift_demand_df = pd.DataFrame([
+            #                 {
+            #                     "Shift": "Day",
+            #                     "Calls": day_calls
+            #                 },
+            #                 {
+            #                     "Shift": "Evening",
+            #                     "Calls": evening_calls
+            #                 },
+            #                 {
+            #                     "Shift": "Night",
+            #                     "Calls": night_calls
+            #                 }
+            #             ])
                         
-                        fig = px.pie(
-                            shift_demand_df,
-                            names="Shift",
-                            values="Calls",
-                            hole=0.4
-                            )
+            #             fig = px.pie(
+            #                 shift_demand_df,
+            #                 names="Shift",
+            #                 values="Calls",
+            #                 hole=0.4
+            #                 )
 
-                        fig.update_layout(
-                            title="Call Distribution Across Shifts"
-                            )
+            #             fig.update_layout(
+            #                 title="Call Distribution Across Shifts"
+            #                 )
 
-                        st.plotly_chart(
-                            fig,
-                            use_container_width=True
-                            )
+            #             st.plotly_chart(
+            #                 fig,
+            #                 use_container_width=True
+            #                 )
 
     #         col1, col2, col3, col4 = st.columns(4)
     #         col1.metric('Required positions', summary.get('positions', 'N/A'))

@@ -456,3 +456,19 @@ def highlight_row(row, recommended_staff):
         return ["background-color: #FFD700"] * len(row)
 
     return [""] * len(row)
+
+def seconds_to_text(seconds):
+
+    seconds = int(round(seconds))
+
+    hours = seconds // 3600
+    minutes = (seconds % 3600) // 60
+    secs = seconds % 60
+
+    if hours > 0:
+        return f"{hours} hours {minutes} minutes"
+
+    if minutes > 0:
+        return f"{minutes} minutes {secs} seconds"
+
+    return f"{secs} seconds"

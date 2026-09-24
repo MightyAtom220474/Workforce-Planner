@@ -204,8 +204,6 @@ def workforce():
                                     )
 
 
-            result_df = pd.DataFrame([result])
-            
             curve_df = calculate_staffing_curve(
                                                 transactions=transactions,
                                                 aht=aht,
@@ -264,26 +262,26 @@ def workforce():
                     patience_time=patience_time
                 )
 
-                shift_df = pd.DataFrame([
-                    {
-                        "Shift": "08:00-16:00",
-                        "Calls": day_calls,
-                        "Required Staff": day_result["positions"],
-                        "With Shrinkage": day_result["positions_with_shrinkage"]
-                    },
-                    {
-                        "Shift": "16:00-00:00",
-                        "Calls": evening_calls,
-                        "Required Staff": evening_result["positions"],
-                        "With Shrinkage": evening_result["positions_with_shrinkage"]
-                    },
-                    {
-                        "Shift": "00:00-08:00",
-                        "Calls": night_calls,
-                        "Required Staff": night_result["positions"],
-                        "With Shrinkage": night_result["positions_with_shrinkage"]
-                    }
-                ])
+                # shift_df = pd.DataFrame([
+                #     {
+                #         "Shift": "08:00-16:00",
+                #         "Calls": day_calls,
+                #         "Required Staff": day_result["positions"],
+                #         "With Shrinkage": day_result["positions_with_shrinkage"]
+                #     },
+                #     {
+                #         "Shift": "16:00-00:00",
+                #         "Calls": evening_calls,
+                #         "Required Staff": evening_result["positions"],
+                #         "With Shrinkage": evening_result["positions_with_shrinkage"]
+                #     },
+                #     {
+                #         "Shift": "00:00-08:00",
+                #         "Calls": night_calls,
+                #         "Required Staff": night_result["positions"],
+                #         "With Shrinkage": night_result["positions_with_shrinkage"]
+                #     }
+                # ])
                 
                 if mode == "Advanced Planner":
 
@@ -445,34 +443,34 @@ def workforce():
                             night_result["positions_with_shrinkage"]
                         )
                         
-                    shift_df = pd.DataFrame(
-                        [
-                            {
-                                "Shift": "Daytime",
-                                "Calls": day_calls,
-                                "Required Staff":
-                                    day_result["positions"],
-                                "With Shrinkage":
-                                    day_result["positions_with_shrinkage"]
-                            },
-                            {
-                                "Shift": "Evening",
-                                "Calls": evening_calls,
-                                "Required Staff":
-                                    evening_result["positions"],
-                                "With Shrinkage":
-                                    evening_result["positions_with_shrinkage"]
-                            },
-                            {
-                                "Shift": "Night",
-                                "Calls": night_calls,
-                                "Required Staff":
-                                    night_result["positions"],
-                                "With Shrinkage":
-                                    night_result["positions_with_shrinkage"]
-                            }
-                        ]
-                    )
+                    # shift_df = pd.DataFrame(
+                    #     [
+                    #         {
+                    #             "Shift": "Daytime",
+                    #             "Calls": day_calls,
+                    #             "Required Staff":
+                    #                 day_result["positions"],
+                    #             "With Shrinkage":
+                    #                 day_result["positions_with_shrinkage"]
+                    #         },
+                    #         {
+                    #             "Shift": "Evening",
+                    #             "Calls": evening_calls,
+                    #             "Required Staff":
+                    #                 evening_result["positions"],
+                    #             "With Shrinkage":
+                    #                 evening_result["positions_with_shrinkage"]
+                    #         },
+                    #         {
+                    #             "Shift": "Night",
+                    #             "Calls": night_calls,
+                    #             "Required Staff":
+                    #                 night_result["positions"],
+                    #             "With Shrinkage":
+                    #                 night_result["positions_with_shrinkage"]
+                    #         }
+                    #     ]
+                    # )
                     
                     
 
@@ -495,13 +493,8 @@ def workforce():
                         )
                     )
                     
-                    st.plotly_chart(
-                                    fig1,
-                                    use_container_width=True
-                                    )
-                    
                     fig1.add_hline(
-                                    y=service_level_target * 100,
+                                    y=service_level_target_pct,
                                     line_dash="dash",
                                     line_color="red",
                                     annotation_text=f"Target {service_level_target:.0%}"
@@ -514,6 +507,11 @@ def workforce():
                         height=500
                         )
                     
+                    st.plotly_chart(
+                                    fig1,
+                                    use_container_width=True
+                                    )
+                    
                     st.subheader("Risk Categorisation")
                                     
                     st.info("""
@@ -524,7 +522,7 @@ def workforce():
 
                     fig2 = px.scatter(
                                     curve_df,
-                                    x="staff",
+                                    x="adjusted_staff_for_shrinkage",
                                     y="service_level_pct",
                                     size="occupancy_pct",
                                     color="risk_zone",
@@ -542,6 +540,13 @@ def workforce():
                     fig2.update_layout(
                         title="Staffing Risk Profile"
                     )
+                    
+                    fig2.add_hline(
+                                    y=service_level_target_pct,
+                                    line_dash="dash",
+                                    line_color="red",
+                                    annotation_text=f"Target {service_level_target:.0%}"
+                                    )
 
                     st.plotly_chart(
                         fig2,
@@ -552,7 +557,7 @@ def workforce():
                                     
                     fig3 = px.line(
                         curve_df,
-                        x="staff",
+                        x="adjusted_staff_for_shrinkage",
                         y="occupancy_pct",
                         markers=True
                     )
@@ -576,9 +581,9 @@ def workforce():
 
                 else:
 
-                    fig1 = go.Figure()
+                    fig4 = go.Figure()
 
-                    fig1.add_trace(
+                    fig4.add_trace(
                         go.Scatter(
                             x=day_curve["adjusted_staff_for_shrinkage"],
                             y=day_curve["service_level_pct"],
@@ -588,7 +593,7 @@ def workforce():
                         )
                     )
 
-                    fig1.add_trace(
+                    fig4.add_trace(
                         go.Scatter(
                             x=evening_curve["adjusted_staff_for_shrinkage"],
                             y=evening_curve["service_level_pct"],
@@ -598,7 +603,7 @@ def workforce():
                         )
                     )
 
-                    fig1.add_trace(
+                    fig4.add_trace(
                         go.Scatter(
                             x=night_curve["adjusted_staff_for_shrinkage"],
                             y=night_curve["service_level_pct"],
@@ -608,24 +613,24 @@ def workforce():
                         )
                     )
                     
-                    st.plotly_chart(
-                                    fig1,
-                                    use_container_width=True
-                                )
-                    
-                    fig1.add_hline(
-                                    y=service_level_target * 100,
+                    fig4.add_hline(
+                                    y=service_level_target_pct,
                                     line_dash="dash",
                                     line_color="red",
                                     annotation_text=f"Target {service_level_target:.0%}"
                                     )
                 
-                    fig1.update_layout(
+                    fig4.update_layout(
                         title="Service Level by Staffing",
                         xaxis_title="Staff",
                         yaxis_title="Service Level %",
                         height=500
                         )
+                    
+                    st.plotly_chart(
+                                    fig4,
+                                    use_container_width=True
+                                    )
 
                     st.divider()
 
@@ -671,11 +676,11 @@ def workforce():
 
                 scenario_df = scenario_df[
                     (
-                        scenario_df["staff"]
+                        scenario_df["adjusted_staff_for_shrinkage"]
                         >= recommended_staff - 5
                     ) &
                     (
-                        scenario_df["staff"]
+                        scenario_df["adjusted_staff_for_shrinkage"]
                         <= recommended_staff + 5
                     )
                 ]

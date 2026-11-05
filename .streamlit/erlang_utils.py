@@ -2,6 +2,7 @@
 from __future__ import annotations
 import math
 import pandas as pd
+import numpy as np
 
 
 from dataclasses import dataclass
@@ -298,7 +299,7 @@ def calculate_staffing_curve(
 
                         "offered_load": offered_load,
 
-                        "adjusted_staff_for_shrinkage":
+                        "staff_with_shrinkage":
                             adjusted_staff
                     }
                 )
@@ -450,10 +451,47 @@ def build_shift_curve(
         patience_time=patience_time
     )
 
-def highlight_row(row, recommended_staff):
+# def highlight_row(row, recommended_staff):
 
-    if row["staff"] == recommended_staff:
-        return ["background-color: #FFD700"] * len(row)
+#     if row["staff_with_shrinkage"] == recommended_staff:
+#         return ["background-color: #FFD700"] * len(row)
+
+#     return [""] * len(row)
+def highlight_row(
+        row,
+        recommended_staff,
+        staff_column="staff_with_shrinkage"
+    ):
+
+    if row[staff_column] == recommended_staff:
+        return ["background-color: #fff3cd"] * len(row)
+
+    return [""] * len(row)
+
+def highlight_shift_rows(
+                        row,
+                        day_recommended,
+                        evening_recommended,
+                        night_recommended
+                    ):
+
+    if (
+        row["Shift"] == "Day"
+        and row["Staff"] == day_recommended
+    ):
+        return ["background-color: #d4edda"] * len(row)  # Green
+
+    if (
+        row["Shift"] == "Evening"
+        and row["Staff"] == evening_recommended
+    ):
+        return ["background-color: #fff3cd"] * len(row)  # Amber
+
+    if (
+        row["Shift"] == "Night"
+        and row["Staff"] == night_recommended
+    ):
+        return ["background-color: #d6d8ff"] * len(row)  # Purple
 
     return [""] * len(row)
 
@@ -467,6 +505,23 @@ def seconds_to_text(seconds):
 
     if hours > 0:
         return f"{hours} hours {minutes} minutes"
+
+    if minutes > 0:
+        return f"{minutes} minutes {secs} seconds"
+
+    return f"{secs} seconds"
+
+
+def format_duration(seconds):
+
+    if pd.isna(seconds) or seconds is None:
+        return "N/A"
+
+    if not np.isfinite(seconds):
+        return "N/A"
+
+    minutes = int(seconds // 60)
+    secs = int(seconds % 60)
 
     if minutes > 0:
         return f"{minutes} minutes {secs} seconds"

@@ -6,7 +6,7 @@ import numpy as np
 import plotly.express as px
 import plotly.graph_objects as go
 
-from erlang_utils import calculate_staffing_curve, calculate_erlang, summarise_result, build_shift_curve, highlight_row # calculate_shift_results
+from erlang_utils import calculate_staffing_curve, calculate_erlang, summarise_result, build_shift_curve, highlight_row, highlight_shift_rows, seconds_to_text, format_duration # calculate_shift_results
 
 def workforce():
 
@@ -224,7 +224,7 @@ def workforce():
                         )
             
 
-            #st.dataframe(result_df, use_container_width=True)
+            #st.dataframe(result_df, width='stretch')
             
             #summary = summarise_result(result)
             
@@ -391,37 +391,37 @@ def workforce():
                     
                     with st.expander("What is shrinkage?"):
                                     
-                                        st.write("""
-                                        **Shrinkage** represents the proportion of paid staff time that is unavailable for handling contacts or delivering services.
-                    
-                                        Examples of shrinkage include:
-                    
-                                        - Annual leave
-                                        - Sickness absence
-                                        - Training and development
-                                        - Team meetings
-                                        - Supervision
-                                        - Breaks
-                                        - Administrative duties
-                                        - Other non-contact activities
-                    
-                                        Workforce planning calculations first determine how many staff need to be **available** to meet demand. Shrinkage is then applied to calculate how many staff need to be **employed** to achieve that level of availability.
-                    
-                                        **Example**
-                    
-                                        If 10 staff are required to be available and shrinkage is 30%:
-                    
-                                        ```
-                                        Required Staff = Available Staff ÷ (1 - Shrinkage)
-                    
-                                        10 ÷ (1 - 0.30)
-                                        = 14.3
-                                        ```
-                    
-                                        Therefore, approximately **15 staff would need to be employed** to ensure that 10 staff are available on average.
-                    
-                                        Higher shrinkage percentages increase staffing requirements because a smaller proportion of staff time is available for direct service delivery.
-                                        """)
+                        st.write("""
+                        **Shrinkage** represents the proportion of paid staff time that is unavailable for handling contacts or delivering services.
+    
+                        Examples of shrinkage include:
+    
+                        - Annual leave
+                        - Sickness absence
+                        - Training and development
+                        - Team meetings
+                        - Supervision
+                        - Breaks
+                        - Administrative duties
+                        - Other non-contact activities
+    
+                        Workforce planning calculations first determine how many staff need to be **available** to meet demand. Shrinkage is then applied to calculate how many staff need to be **employed** to achieve that level of availability.
+    
+                        **Example**
+    
+                        If 10 staff are required to be available and shrinkage is 30%:
+    
+                        ```
+                        Required Staff = Available Staff ÷ (1 - Shrinkage)
+    
+                        10 ÷ (1 - 0.30)
+                        = 14.3
+                        ```
+    
+                        Therefore, approximately **15 staff would need to be employed** to ensure that 10 staff are available on average.
+    
+                        Higher shrinkage percentages increase staffing requirements because a smaller proportion of staff time is available for direct service delivery.
+                        """)
 
                     c1, c2, c3 = st.columns(3)
 
@@ -482,7 +482,7 @@ def workforce():
 
                     fig1.add_trace(
                         go.Scatter(
-                            x=curve_df["adjusted_staff_for_shrinkage"],
+                            x=curve_df["staff_with_shrinkage"],
                             y=curve_df["service_level_pct"],
                             mode="lines+markers",
                             name="Service Level %",
@@ -509,7 +509,7 @@ def workforce():
                     
                     st.plotly_chart(
                                     fig1,
-                                    use_container_width=True
+                                    width='stretch'
                                     )
                     
                     st.subheader("Risk Categorisation")
@@ -522,7 +522,7 @@ def workforce():
 
                     fig2 = px.scatter(
                                     curve_df,
-                                    x="adjusted_staff_for_shrinkage",
+                                    x="staff_with_shrinkage",
                                     y="service_level_pct",
                                     size="occupancy_pct",
                                     color="risk_zone",
@@ -550,14 +550,14 @@ def workforce():
 
                     st.plotly_chart(
                         fig2,
-                        use_container_width=True
+                        width='stretch'
                     )
                     
                     st.subheader("Occupancy Analysis")
                                     
                     fig3 = px.line(
                         curve_df,
-                        x="adjusted_staff_for_shrinkage",
+                        x="staff_with_shrinkage",
                         y="occupancy_pct",
                         markers=True
                     )
@@ -576,8 +576,116 @@ def workforce():
     
                     st.plotly_chart(
                         fig3,
-                        use_container_width=True
+                        width='stretch'
                     )
+                    
+                    recommended_staff = result["positions_with_shrinkage"]
+                    
+                    scenario_df = curve_df.copy()
+    
+                    scenario_df = scenario_df[
+                        (
+                            scenario_df["staff_with_shrinkage"]
+                            >= recommended_staff - 5
+                        ) &
+                        (
+                            scenario_df["staff_with_shrinkage"]
+                            <= recommended_staff + 5
+                        )
+                    ]
+    
+                    recommended_staff = int(
+                        summary.get("positions_with_shrinkage", 0)
+                    )
+
+                    min_staff = max(
+                        1,
+                        recommended_staff - 5
+                    )
+
+                    max_staff = recommended_staff + 5
+
+                    sensitivity_df = curve_df[
+                        (curve_df["staff_with_shrinkage"] >= min_staff)
+                        &
+                        (curve_df["staff_with_shrinkage"] <= max_staff)
+                    ].copy()
+
+                    sensitivity_df = sensitivity_df[
+                        [
+                            "staff_with_shrinkage",
+                            "service_level_pct",
+                            "occupancy_pct",
+                            "asa_seconds",
+                            "abandon_rate_pct"
+                        ]
+                    ]
+
+                    sensitivity_df.columns = [
+                        "Staff",
+                        "Service Level %",
+                        "Occupancy %",
+                        "ASA (Seconds)",
+                        "Abandon Rate %"
+                    ]
+
+                    styled_df = (
+                        sensitivity_df.style
+                        .apply(
+                            highlight_row,
+                            axis=1,
+                            recommended_staff=recommended_staff
+                        )
+                    )
+                    
+                    sensitivity_df.columns = [
+                                            "Staff",
+                                            "Service Level %",
+                                            "Occupancy %",
+                                            "ASA (Seconds)",
+                                            "Abandon Rate %"
+                                            ]
+                    
+                    st.subheader(
+                                "Staffing Sensitivity Analysis"
+                                )
+    
+                    # st.dataframe(
+                    #             sensitivity_df.style.apply(
+                    #                 lambda row: [
+                    #                     "background-color: #fff3cd"
+                    #                     if row["Staff"] == recommended_staff
+                    #                     else ""
+                    #                     for _ in row
+                    #                 ],
+                    #                 axis=1
+                    #             ),
+                    #             width='stretch'
+                    #             )
+                    
+                    styled_df = (
+                                scenario_df.style
+                                .apply(
+                                    highlight_row,
+                                    axis=1,
+                                    recommended_staff=recommended_staff
+                                )
+                                )
+    
+                    
+                    st.dataframe(
+                                styled_df,
+                                width='stretch'
+                                )
+                    
+                    st.success(
+                                f"""
+                                Recommended staffing level: {recommended_staff} staff
+    
+                                The yellow highlighted row represents the minimum staffing level
+                                required to achieve your target service level.
+                                """
+                            )
 
                 else:
 
@@ -585,31 +693,34 @@ def workforce():
 
                     fig4.add_trace(
                         go.Scatter(
-                            x=day_curve["adjusted_staff_for_shrinkage"],
+                            x=day_curve["staff_with_shrinkage"],
                             y=day_curve["service_level_pct"],
                             mode="lines+markers",
                             name="Day Shift",
-                            line=dict(color="green", width=3)
+                            line=dict(color="green", width=3),
+                            marker=dict(size=8)
                         )
                     )
 
                     fig4.add_trace(
                         go.Scatter(
-                            x=evening_curve["adjusted_staff_for_shrinkage"],
+                            x=evening_curve["staff_with_shrinkage"],
                             y=evening_curve["service_level_pct"],
                             mode="lines+markers",
                             name="Evening Shift",
-                            line=dict(color="orange", width=3)
+                            line=dict(color="orange", width=3),
+                            marker=dict(size=8)
                         )
                     )
 
                     fig4.add_trace(
                         go.Scatter(
-                            x=night_curve["adjusted_staff_for_shrinkage"],
+                            x=night_curve["staff_with_shrinkage"],
                             y=night_curve["service_level_pct"],
                             mode="lines+markers",
                             name="Night Shift",
-                            line=dict(color="purple", width=3)
+                            line=dict(color="purple", width=3),
+                            marker=dict(size=8)
                         )
                     )
                     
@@ -629,14 +740,10 @@ def workforce():
                     
                     st.plotly_chart(
                                     fig4,
-                                    use_container_width=True
+                                    width='stretch'
                                     )
 
                     st.divider()
-
-                    st.subheader(
-                        "Demand Distribution By Shift"
-                    )
 
                     shift_demand_df = pd.DataFrame([
                         {
@@ -666,101 +773,214 @@ def workforce():
 
                     st.plotly_chart(
                         fig,
-                        use_container_width=True
+                        width='stretch'
                         )
-                
-
-                recommended_staff = result["positions"]
-
-                scenario_df = curve_df.copy()
-
-                scenario_df = scenario_df[
-                    (
-                        scenario_df["adjusted_staff_for_shrinkage"]
-                        >= recommended_staff - 5
-                    ) &
-                    (
-                        scenario_df["adjusted_staff_for_shrinkage"]
-                        <= recommended_staff + 5
+                    
+                    ##### Get data ready for Staffing Sensitivity Analysis table for shifts
+                    
+                    day_recommended_staff = int(
+                        day_result["positions_with_shrinkage"]
                     )
-                ]
 
-                recommended_staff = int(
-                                        summary.get("positions", 0)
-                                        )
+                    day_sensitivity_df = day_curve[
+                        (
+                            day_curve["staff_with_shrinkage"]
+                            >= day_recommended_staff - 5
+                        )
+                        &
+                        (
+                            day_curve["staff_with_shrinkage"]
+                            <= day_recommended_staff + 5
+                        )
+                    ].copy()
+
+                    day_sensitivity_df = day_sensitivity_df[
+                        [
+                            "staff_with_shrinkage",
+                            "service_level_pct",
+                            "occupancy_pct",
+                            "asa_seconds",
+                            "abandon_rate_pct"
+                        ]
+                    ]
+
+                    day_sensitivity_df.columns = [
+                        "Staff",
+                        "Service Level %",
+                        "Occupancy %",
+                        "ASA (Seconds)",
+                        "Abandon Rate %"
+                    ]
+                    
+                    evening_recommended_staff = int(
+                        evening_result["positions_with_shrinkage"]
+                    )
+
+                    evening_sensitivity_df = evening_curve[
+                        (
+                            evening_curve["staff_with_shrinkage"]
+                            >= evening_recommended_staff - 5
+                        )
+                        &
+                        (
+                            evening_curve["staff_with_shrinkage"]
+                            <= evening_recommended_staff + 5
+                        )
+                    ].copy()
+
+                    evening_sensitivity_df = evening_sensitivity_df[
+                        [
+                            "staff_with_shrinkage",
+                            "service_level_pct",
+                            "occupancy_pct",
+                            "asa_seconds",
+                            "abandon_rate_pct"
+                        ]
+                    ]
+
+                    evening_sensitivity_df.columns = [
+                        "Staff",
+                        "Service Level %",
+                        "Occupancy %",
+                        "ASA (Seconds)",
+                        "Abandon Rate %"
+                    ]
+                    
+                    night_recommended_staff = int(
+                        night_result["positions_with_shrinkage"]
+                    )
+
+                    night_sensitivity_df = night_curve[
+                        (
+                            night_curve["staff_with_shrinkage"]
+                            >= night_recommended_staff - 5
+                        )
+                        &
+                        (
+                            night_curve["staff_with_shrinkage"]
+                            <= night_recommended_staff + 5
+                        )
+                    ].copy()
+
+                    night_sensitivity_df = night_sensitivity_df[
+                        [
+                            "staff_with_shrinkage",
+                            "service_level_pct",
+                            "occupancy_pct",
+                            "asa_seconds",
+                            "abandon_rate_pct"
+                        ]
+                    ]
+
+                    night_sensitivity_df.columns = [
+                        "Staff",
+                        "Service Level %",
+                        "Occupancy %",
+                        "ASA (Seconds)",
+                        "Abandon Rate %"
+                    ]
+                    
+                    day_recommended = day_result["positions_with_shrinkage"]
+                    evening_recommended = evening_result["positions_with_shrinkage"]
+                    night_recommended = night_result["positions_with_shrinkage"]
+
+                    day_df = day_curve.copy()
+                    day_df["Shift"] = "Day"
+
+                    evening_df = evening_curve.copy()
+                    evening_df["Shift"] = "Evening"
+
+                    night_df = night_curve.copy()
+                    night_df["Shift"] = "Night"
+
+                    combined_df = pd.concat(
+                        [day_df, evening_df, night_df],
+                        ignore_index=True
+                    )
                 
-                min_staff = max(
-                                1,
-                                recommended_staff - 5
+                    combined_df = combined_df[
+                            (
+                                ((combined_df["Shift"] == "Day")
+                                & (combined_df["staff_with_shrinkage"].between(
+                                        day_recommended - 5,
+                                        day_recommended + 5
+                                    )))
+                            )
+                            |
+                            (
+                                ((combined_df["Shift"] == "Evening")
+                                & (combined_df["staff_with_shrinkage"].between(
+                                        evening_recommended - 5,
+                                        evening_recommended + 5
+                                    )))
+                            )
+                            |
+                            (
+                                ((combined_df["Shift"] == "Night")
+                                & (combined_df["staff_with_shrinkage"].between(
+                                        night_recommended - 5,
+                                        night_recommended + 5
+                                    )))
+                            )
+                        ].copy()
+            
+                    combined_df = combined_df[
+                                                [
+                                                    "Shift",
+                                                    "staff_with_shrinkage",
+                                                    "service_level_pct",
+                                                    "occupancy_pct",
+                                                    "asa_seconds",
+                                                    "abandon_rate_pct"
+                                                ]
+                                            ]
+                    combined_df.columns = [
+                        "Shift",
+                    "Staff",
+                        "Service Level %",
+                        "Occupancy %",
+                        "ASA (Seconds)",
+                        "Abandon Rate %"
+                    ]
+                    
+                    # round so matches with recommended staffing levels for highlighting
+                    combined_df["Staff"] = (
+                                            combined_df["Staff"]
+                                            .round()
+                                            .astype(int)
+                                            )
+
+                    styled_df = (
+                                combined_df.style
+                                .apply(
+                                    highlight_shift_rows,
+                                    axis=1,
+                                    day_recommended=day_recommended,
+                                    evening_recommended=evening_recommended,
+                                    night_recommended=night_recommended
+                                )
                                 )
 
-                max_staff = recommended_staff + 5
-                
-                sensitivity_df = curve_df[
-                                        (curve_df["staff"] >= min_staff)
-                                        &
-                                        (curve_df["staff"] <= max_staff)
-                                        ].copy()
-                
-                sensitivity_df = sensitivity_df[
-                                                [
-                                                "staff",
-                                                "service_level_pct",
-                                                "occupancy_pct",
-                                                "asa_seconds",
-                                                "abandon_rate_pct"
-                                                ]
-                                                ]
-                
-                sensitivity_df.columns = [
-                                        "Staff",
-                                        "Service Level %",
-                                        "Occupancy %",
-                                        "ASA (Seconds)",
-                                        "Abandon Rate %"
-                                        ]
-                
-                st.subheader(
-                            "Staffing Sensitivity Analysis"
-                            )
+                    st.subheader(
+                                "Staffing Sensitivity Analysis"
+                                )
 
-                # st.dataframe(
-                #             sensitivity_df.style.apply(
-                #                 lambda row: [
-                #                     "background-color: #fff3cd"
-                #                     if row["Staff"] == recommended_staff
-                #                     else ""
-                #                     for _ in row
-                #                 ],
-                #                 axis=1
-                #             ),
-                #             use_container_width=True
-                #             )
-                
-                styled_df = (
-                            scenario_df.style
-                            .apply(
-                                highlight_row,
-                                axis=1,
-                                recommended_staff=recommended_staff
-                            )
-                            )
-
-                
-                st.dataframe(
-                            styled_df,
-                            use_container_width=True
-                            )
-                
-                st.success(
+                    st.dataframe(
+                        styled_df,
+                        width='stretch'
+                    )
+                    
+                    st.markdown(
                             f"""
-                            Recommended staffing level: {recommended_staff} staff
+                        *Key:*
+                        🟩 **Day Shift Recommended Staffing:** {day_recommended}
 
-                            The yellow highlighted row represents the minimum staffing level
-                            required to achieve your target service level.
-                            """
-                        )
-                
+                        🟨 **Evening Shift Recommended Staffing:** {evening_recommended}
+
+                        🟪 **Night  Recommended Staffing:** {night_recommended}
+                        """
+                    )
+                                                                                                               
             with tab2:
 
                 st.subheader("Supporting Data")
@@ -772,101 +992,281 @@ def workforce():
                         """)
                 
                 if mode == "Advanced Planner":
-
-                    shift_comparison = pd.DataFrame([
+                    
+                    shift_summary_df = pd.DataFrame([
                         {
-                            "Shift": "Day",
-                            "Calls": day_calls,
-                            "Required Staff":
-                                day_result["positions_with_shrinkage"]
+                            "Shift": "Day (08:00 - 16:00)",
+                            "Average calls per hour":
+                                round(day_calls * (60 / interval_minutes)),
+                            "Total call time per shift":
+                                format_duration(day_calls * aht)
                         },
                         {
-                            "Shift": "Evening",
-                            "Calls": evening_calls,
-                            "Required Staff":
-                                evening_result["positions_with_shrinkage"]
+                            "Shift": "Evening (16:00 - 00:00)",
+                            "Average calls per hour":
+                                round(evening_calls * (60 / interval_minutes)),
+                            "Total call time per shift":
+                                format_duration(evening_calls * aht)
                         },
                         {
-                            "Shift": "Night",
-                            "Calls": night_calls,
-                            "Required Staff":
-                                night_result["positions_with_shrinkage"]
+                            "Shift": "Night (00:00 - 08:00)",
+                            "Average calls per hour":
+                                round(night_calls * (60 / interval_minutes)),
+                            "Total call time per shift":
+                                format_duration(night_calls * aht)
                         }
                     ])
-
-                    fig_shift = px.bar(
-                        shift_comparison,
-                        x="Shift",
-                        y="Required Staff",
-                        text="Required Staff",
-                        color="Required Staff"
+                    
+                    styled_shift_df = (
+                                        shift_summary_df.style
+                                        .hide(axis="index")
+                                        .set_properties(
+                                            **{"text-align": "left"}
+                                        )
+                                        )
+        
+                    st.markdown(
+                        styled_shift_df.to_html(),
+                        unsafe_allow_html=True
                     )
-
-                    st.plotly_chart(
-                        fig_shift,
-                        use_container_width=True
-                    )
-                
-                fig = px.bar(
-                    curve_df,
-                    x="staff",
-                    y="marginal_gain",
-                    labels={
-                        "staff": "Staff",
-                        "marginal_gain": "Improvement (%)"
-                    }
-                )
-
-                fig.update_layout(
-                    title="Service Level Gain from Each Additional Staff Member"
-                )
-
-                st.plotly_chart(
-                    fig,
-                    use_container_width=True
-                )
-
-                sweet_spot_df = curve_df[
-                    (curve_df["marginal_gain"] < 1)
-                    & (curve_df["service_level_pct"] >= service_level_target_pct)
-                ]
-
-                if not sweet_spot_df.empty:
-
-                    sweet_spot = int(
-                        sweet_spot_df.iloc[0]["staff"]
-                    )
-
-                    st.success(
-                        f"Recommended staffing sweet spot: {sweet_spot} staff"
-                    )
-
-                st.subheader("Target Achievement Table")
-
-                targets = [70, 80, 85, 90, 95]
-
-                target_results = []
-
-                for target in targets:
-
-                    hit = curve_df[
-                        curve_df["service_level_pct"] >= target
+                    
+                    combined_df = combined_df[
+                        [
+                            "Shift",
+                            "Staff",
+                            "Occupancy %",
+                            "ASA (Seconds)",
+                            "Abandon Rate %"
+                        ]
                     ]
+                    
+                    combined_df.columns = [
+                        "Shift",
+                        "Staff on Shift",
+                        "Utilisation Rate",
+                        "Average Call Answer Time",
+                        "Call Abandonment Rate"
+                    ]
+                    
+                    combined_df["Average Call Answer Time"] = (
+                        combined_df["Average Call Answer Time"]
+                        .apply(format_duration)
+                    )
 
-                    if not hit.empty:
+                    combined_df["Utilisation Rate"] = (
+                        combined_df["Utilisation Rate"]
+                        .round(0)
+                        .astype(int)
+                        .astype(str)
+                        + "%"
+                    )
 
-                        target_results.append(
-                            {
-                                "Target": f"{target}%",
-                                "Staff Required":
-                                int(hit.iloc[0]["staff"])
-                            }
+                    combined_df["Call Abandonment Rate"] = (
+                        combined_df["Call Abandonment Rate"]
+                        .round(0)
+                        .astype(int)
+                        .astype(str)
+                        + "%"
+                    )
+                    
+                    styled_combined_df = (
+                                        combined_df.style
+                                        .hide(axis="index")
+                                        .set_properties(
+                                            **{"text-align": "left"}
+                                        )
+                                        )
+        
+                    st.markdown(
+                        styled_combined_df.to_html(),
+                        unsafe_allow_html=True
+                    )
+                    
+                    # shift_comparison = pd.DataFrame([
+                    #     {
+                    #         "Shift": "Day",
+                    #         "Calls": day_calls,
+                    #         "Required Staff":
+                    #             day_result["positions_with_shrinkage"]
+                    #     },
+                    #     {
+                    #         "Shift": "Evening",
+                    #         "Calls": evening_calls,
+                    #         "Required Staff":
+                    #             evening_result["positions_with_shrinkage"]
+                    #     },
+                    #     {
+                    #         "Shift": "Night",
+                    #         "Calls": night_calls,
+                    #         "Required Staff":
+                    #             night_result["positions_with_shrinkage"]
+                    #     }
+                    # ])
+
+                    # fig_shift = px.bar(
+                    #     shift_comparison,
+                    #     x="Shift",
+                    #     y="Required Staff",
+                    #     text="Required Staff",
+                    #     color="Required Staff"
+                    # )
+
+                    # st.plotly_chart(
+                    #     fig_shift,
+                    #     width ='content'
+                    # )
+                
+                # fig = px.bar(
+                #     curve_df,
+                #     x="staff",
+                #     y="marginal_gain",
+                #     labels={
+                #         "staff": "Staff",
+                #         "marginal_gain": "Improvement (%)"
+                #     }
+                # )
+
+                # fig.update_layout(
+                #     title="Service Level Gain from Each Additional Staff Member"
+                # )
+
+                # st.plotly_chart(
+                #     fig,
+                #     width='stretch'
+                # )
+
+                # sweet_spot_df = curve_df[
+                #     (curve_df["marginal_gain"] < 1)
+                #     & (curve_df["service_level_pct"] >= service_level_target_pct)
+                # ]
+
+                # if not sweet_spot_df.empty:
+
+                #     sweet_spot = int(
+                #         sweet_spot_df.iloc[0]["staff"]
+                #     )
+
+                #     st.success(
+                #         f"Recommended staffing sweet spot: {sweet_spot} staff"
+                #     )
+
+                # st.subheader("Target Achievement Table")
+
+                # targets = [70, 80, 85, 90, 95]
+
+                # target_results = []
+
+                # for target in targets:
+
+                #     hit = curve_df[
+                #         curve_df["service_level_pct"] >= target
+                #     ]
+
+                #     if not hit.empty:
+
+                #         target_results.append(
+                #             {
+                #                 "Target": f"{target}%",
+                #                 "Staff Required":
+                #                 int(hit.iloc[0]["staff"])
+                #             }
+                #         )
+
+                # st.dataframe(
+                #     pd.DataFrame(target_results),
+                #     width='stretch'
+                # )
+                
+                else:
+                    
+                    avg_calls_per_hour = transactions * (60 / interval_minutes)
+
+                    total_call_seconds = transactions * aht
+
+                    hours = int(total_call_seconds // 3600)
+                    minutes = int((total_call_seconds % 3600) // 60)
+                    
+                    
+                    summary_df = pd.DataFrame(
+                        [{
+                            "Planning Period": f"{interval_minutes} minutes",
+                            "Average calls per hour": round(avg_calls_per_hour),
+                            "Total workload": f"{hours} hours {minutes} minutes"
+                        }]
+                    )
+                    
+                    styled_summary_df = (
+                                summary_df.style
+                                .hide(axis="index")
+                                .set_properties(
+                                    **{"text-align": "left"}
+                                )
+                                )
+
+                    st.markdown(
+                        styled_summary_df.to_html(),
+                        unsafe_allow_html=True
+                    )
+                    
+                    # re-use sensitivity_df from earlier
+                    
+                    display_df = sensitivity_df.copy()
+                    
+                    display_df = display_df[
+                                            [
+                                            "Staff",
+                                            "Occupancy %",
+                                            "ASA (Seconds)",
+                                            "Abandon Rate %"
+                                            ]
+                                            ]
+
+                    display_df.columns = [
+                                        "Staff on Shift",
+                                        "Utilisation Rate",
+                                        "Average Call Answer Time",
+                                        "Call Abandonment Rate"
+                                        ]
+                    
+                    display_df["Staff on Shift"] = (
+                            display_df["Staff on Shift"]
+                            .round()
+                            .astype(int)
                         )
 
-                st.dataframe(
-                    pd.DataFrame(target_results),
-                    use_container_width=True
-                )
+                    display_df["Average Call Answer Time"] = (
+                        display_df["Average Call Answer Time"]
+                        .apply(format_duration)
+                    )
+
+                    display_df["Utilisation Rate"] = (
+                        display_df["Utilisation Rate"]
+                        .round(0)
+                        .astype(int)
+                        .astype(str)
+                        + "%"
+                    )
+
+                    display_df["Call Abandonment Rate"] = (
+                        display_df["Call Abandonment Rate"]
+                        .round(0)
+                        .astype(int)
+                        .astype(str)
+                        + "%"
+                    )
+                    
+                    styled_df = (
+                                display_df.style
+                                .hide(axis="index")
+                                .set_properties(
+                                    **{"text-align": "left"}
+                                )
+                                )
+
+                    st.markdown(
+                        styled_df.to_html(),
+                        unsafe_allow_html=True
+                    )
                 
             # with tab3:
 
@@ -893,7 +1293,7 @@ def workforce():
 
             #     st.plotly_chart(
             #         fig,
-            #         use_container_width=True
+            #         width='stretch'
             #     )
 
             #     curve_df["risk_zone"] = np.where(
@@ -937,7 +1337,7 @@ def workforce():
 
             #     st.plotly_chart(
             #         fig,
-            #         use_container_width=True
+            #         width='stretch'
             #     )
                 
             #     st.subheader(
@@ -958,7 +1358,7 @@ def workforce():
 
             #     st.plotly_chart(
             #         fig,
-            #         use_container_width=True
+            #         width='stretch'
             #     )
 
             #     st.dataframe(
@@ -971,7 +1371,7 @@ def workforce():
             #                 "risk_zone"
             #             ]
             #         ],
-            #         use_container_width=True
+            #         width='stretch'
             #     )
                 
             #     st.subheader("Staffing Sensitivity Analysis")
@@ -1052,12 +1452,12 @@ def workforce():
 
             #     st.plotly_chart(
             #         fig,
-            #         use_container_width=True
+            #         width='stretch'
             #     )
 
             #     st.dataframe(
             #         scenario_df,
-            #         use_container_width=True
+            #         width='stretch'
             #     )
             
             # if mode == "Advanced Planner":
@@ -1068,7 +1468,7 @@ def workforce():
 
             #         st.dataframe(
             #             shift_df,
-            #             use_container_width=True
+            #             width='stretch'
             #         )
 
             #         st.subheader(
@@ -1090,7 +1490,7 @@ def workforce():
             #                     "Value": f"{summary.get('abandon_rate',0)*100:.2f}%"
             #                 }
             #             ]),
-            #             use_container_width=True
+            #             width='stretch'
             #         )
                     
             #         if mode == "Advanced Planner":
@@ -1127,7 +1527,7 @@ def workforce():
 
             #             st.plotly_chart(
             #                 fig,
-            #                 use_container_width=True
+            #                 width='stretch'
             #                 )
 
     #         col1, col2, col3, col4 = st.columns(4)
@@ -1137,7 +1537,7 @@ def workforce():
     #         col4.metric('Occupancy', summary.get('occupancy', 'N/A'))
 
     #         st.subheader('Full result')
-    #         st.dataframe(pd.DataFrame([result]), use_container_width=True)
+    #         st.dataframe(pd.DataFrame([result]), width='stretch')
 
     #         st.subheader('Input assumptions')
     #         st.dataframe(
@@ -1151,7 +1551,7 @@ def workforce():
     #                     'service_level_target': service_level_target,
     #                 }
     #             ]),
-    #             use_container_width=True,
+    #             width='stretch',
     #         )
 
         except Exception as e:
